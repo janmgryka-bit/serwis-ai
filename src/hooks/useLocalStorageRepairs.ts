@@ -117,6 +117,8 @@ function parseRepair(x: unknown): Repair | null {
     return null;
   }
   const notes = typeof o.notes === "string" ? o.notes : "";
+  const finalDiagnosis = typeof o.finalDiagnosis === "string" ? o.finalDiagnosis : "";
+  const solution = typeof o.solution === "string" ? o.solution : "";
   const diagnosticSteps =
     "diagnosticSteps" in o ? parseDiagnosticSteps(o.diagnosticSteps) : [];
   const documentation =
@@ -126,8 +128,16 @@ function parseRepair(x: unknown): Repair | null {
     : "other";
   const diagnosisSteps =
     "diagnosisSteps" in o ? parseDiagnosisSteps(o.diagnosisSteps) : [];
+  const customerName = typeof o.customerName === "string" ? o.customerName : "";
+  const customerPhone = typeof o.customerPhone === "string" ? o.customerPhone : "";
+  const orderNumberRaw = typeof o.orderNumber === "string" ? o.orderNumber.trim() : "";
+  const orderNumber =
+    orderNumberRaw !== "" ? orderNumberRaw : `SRV-${Date.now()}`;
   return {
     id: o.id,
+    customerName,
+    customerPhone,
+    orderNumber,
     device_type: o.device_type,
     brand: o.brand,
     model: o.model,
@@ -135,6 +145,8 @@ function parseRepair(x: unknown): Repair | null {
     symptom: o.symptom,
     status: o.status,
     notes,
+    finalDiagnosis,
+    solution,
     diagnosticSteps,
     documentation,
     diagnosticMode,

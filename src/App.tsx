@@ -10,6 +10,9 @@ import { type Repair, type RepairDraft, DEFAULT_REPAIR_DOCUMENTATION } from "./t
 const initialRepairs: Repair[] = [
   {
     id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    customerName: "Jan Kowalski",
+    customerPhone: "+48 600 100 200",
+    orderNumber: "SRV-1700000000001",
     device_type: "Laptop",
     brand: "Dell",
     model: "Latitude 5520",
@@ -17,6 +20,8 @@ const initialRepairs: Repair[] = [
     symptom: "Brak obrazu po rozgrzaniu, artefakty na zewnętrznym monitorze.",
     status: "diagnoza",
     notes: "",
+    finalDiagnosis: "",
+    solution: "",
     diagnosticSteps: [],
     diagnosisSteps: [],
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
@@ -24,6 +29,9 @@ const initialRepairs: Repair[] = [
   },
   {
     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    customerName: "Anna Nowak",
+    customerPhone: "",
+    orderNumber: "SRV-1700000000002",
     device_type: "PC stacjonarny",
     brand: "Custom",
     model: "B450 / Ryzen 5",
@@ -31,6 +39,8 @@ const initialRepairs: Repair[] = [
     symptom: "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     status: "w naprawie",
     notes: "",
+    finalDiagnosis: "",
+    solution: "",
     diagnosticSteps: buildDiagnosticStepsForSymptom(
       "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     ),
@@ -40,6 +50,9 @@ const initialRepairs: Repair[] = [
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    customerName: "",
+    customerPhone: "22 123 45 67",
+    orderNumber: "SRV-1700000000003",
     device_type: "AIO",
     brand: "HP",
     model: "24-dp1000",
@@ -47,6 +60,8 @@ const initialRepairs: Repair[] = [
     symptom: "Wolny start, dysk SMART ostrzeżenie.",
     status: "nowa",
     notes: "",
+    finalDiagnosis: "",
+    solution: "",
     diagnosticSteps: [],
     diagnosisSteps: [],
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
@@ -65,8 +80,13 @@ function App() {
     const newRepair: Repair = {
       ...draft,
       id: crypto.randomUUID(),
+      orderNumber: `SRV-${Date.now()}`,
+      customerName: draft.customerName.trim(),
+      customerPhone: draft.customerPhone.trim(),
       status: "nowa",
       notes: "",
+      finalDiagnosis: draft.finalDiagnosis.trim(),
+      solution: draft.solution.trim(),
       diagnosticSteps: buildDiagnosticStepsForSymptom(draft.symptom),
       diagnosisSteps: draft.diagnosisSteps ?? [],
     };

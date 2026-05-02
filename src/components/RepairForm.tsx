@@ -33,6 +33,8 @@ const emptyChecked: Record<SymptomPresetId, boolean> = {
 };
 
 const emptyFields = {
+  customerName: "",
+  customerPhone: "",
   device_type: "",
   brand: "",
   model: "",
@@ -73,11 +75,16 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
       ...(hasBoardview && bvName !== "" ? { boardviewFileName: bvName } : {}),
     };
     const trimmed: RepairDraft = {
+      customerName: fields.customerName.trim(),
+      customerPhone: fields.customerPhone.trim(),
+      orderNumber: "",
       device_type: fields.device_type.trim(),
       brand: fields.brand.trim(),
       model: fields.model.trim(),
       motherboard: fields.motherboard.trim(),
       symptom: symptom.trim(),
+      finalDiagnosis: "",
+      solution: "",
       documentation,
       diagnosticMode,
       diagnosisSteps: [],
@@ -100,6 +107,18 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
 
         <Paper component="form" withBorder shadow="sm" p="lg" radius="md" onSubmit={handleSubmit}>
           <Stack gap="md">
+            <TextInput
+              label="Imię klienta"
+              value={fields.customerName}
+              onChange={(e) => setFields((f) => ({ ...f, customerName: e.target.value }))}
+              autoComplete="name"
+            />
+            <TextInput
+              label="Telefon"
+              value={fields.customerPhone}
+              onChange={(e) => setFields((f) => ({ ...f, customerPhone: e.target.value }))}
+              autoComplete="tel"
+            />
             <TextInput
               label="Typ urządzenia"
               required

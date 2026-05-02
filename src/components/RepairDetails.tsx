@@ -338,6 +338,14 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
               ID: {repair.id}
             </Text>
             <Stack gap="xs">
+              <Stack gap="xs" pb="xs" style={{ borderBottom: "1px solid var(--mantine-color-dark-5)" }}>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
+                  Klient
+                </Text>
+                {detailRow("Numer zlecenia", repair.orderNumber)}
+                {detailRow("Imię klienta", repair.customerName || "—", true)}
+                {detailRow("Telefon", repair.customerPhone || "—", true)}
+              </Stack>
               {detailRow("Typ urządzenia", repair.device_type)}
               {detailRow("Marka", repair.brand)}
               {detailRow("Model", repair.model || "—")}
@@ -393,6 +401,30 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
             minRows={6}
             spellCheck={false}
           />
+        </Paper>
+
+        <Paper withBorder shadow="sm" p="lg" radius="md">
+          <Title order={4} size="sm" tt="uppercase" c="teal.4" mb="md">
+            Wynik naprawy
+          </Title>
+          <Stack gap="md">
+            <Textarea
+              label="Diagnoza"
+              value={repair.finalDiagnosis}
+              onChange={(e) => onUpdateRepair({ ...repair, finalDiagnosis: e.target.value })}
+              placeholder="Końcowa diagnoza…"
+              minRows={4}
+              spellCheck={false}
+            />
+            <Textarea
+              label="Rozwiązanie"
+              value={repair.solution}
+              onChange={(e) => onUpdateRepair({ ...repair, solution: e.target.value })}
+              placeholder="Co zrobiono, wymienione elementy…"
+              minRows={4}
+              spellCheck={false}
+            />
+          </Stack>
         </Paper>
 
         <Paper

@@ -51,6 +51,9 @@ export type RepairDiagnosisStepEntry = {
 
 export type Repair = {
   id: string;
+  customerName: string;
+  customerPhone: string;
+  orderNumber: string;
   device_type: string;
   brand: string;
   model: string;
@@ -58,6 +61,10 @@ export type Repair = {
   symptom: string;
   status: RepairStatus;
   notes: string;
+  /** Końcowa diagnoza (wypełniane w szczegółach naprawy). */
+  finalDiagnosis: string;
+  /** Opis rozwiązania / naprawy (wypełniane w szczegółach naprawy). */
+  solution: string;
   diagnosticSteps: RepairDiagnosticStep[];
   documentation: RepairDocumentation;
   diagnosticMode: DiagnosticMode;

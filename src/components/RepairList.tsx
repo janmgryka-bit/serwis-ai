@@ -29,6 +29,28 @@ export function RepairList({ repairs, onNewRepair, onSelectRepair }: RepairListP
         ),
       },
       {
+        accessorKey: "orderNumber",
+        header: "Numer zlecenia",
+        enableSorting: false,
+        size: 140,
+        Cell: ({ cell }) => (
+          <Text size="sm" ff="monospace" truncate title={String(cell.getValue() ?? "")}>
+            {String(cell.getValue() ?? "")}
+          </Text>
+        ),
+      },
+      {
+        accessorKey: "customerName",
+        header: "Klient",
+        enableSorting: false,
+        size: 160,
+        Cell: ({ row }) => (
+          <Text size="sm" truncate title={row.original.customerName || row.original.customerPhone}>
+            {[row.original.customerName, row.original.customerPhone].filter(Boolean).join(" · ") || "—"}
+          </Text>
+        ),
+      },
+      {
         accessorKey: "device_type",
         header: "Typ",
         enableSorting: false,
@@ -86,6 +108,18 @@ export function RepairList({ repairs, onNewRepair, onSelectRepair }: RepairListP
             {REPAIR_STATUS_LABELS[row.original.status]}
           </Badge>
         ),
+      },
+      {
+        id: "repaired",
+        header: "",
+        enableSorting: false,
+        size: 120,
+        Cell: ({ row }) =>
+          row.original.solution.trim() !== "" ? (
+            <Text size="xs" c="teal.4" style={{ whiteSpace: "nowrap" }}>
+              ✔ naprawione
+            </Text>
+          ) : null,
       },
     ],
     [],
