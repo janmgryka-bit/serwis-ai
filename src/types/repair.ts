@@ -42,6 +42,13 @@ export const DIAGNOSTIC_MODE_LABELS: Record<DiagnosticMode, string> = {
   other: "Inne",
 };
 
+/** Jeden krok mentora: `question` = treść od użytkownika, `answer` = odpowiedź AI. */
+export type RepairDiagnosisStepEntry = {
+  step: number;
+  question: string;
+  answer: string;
+};
+
 export type Repair = {
   id: string;
   device_type: string;
@@ -54,9 +61,11 @@ export type Repair = {
   diagnosticSteps: RepairDiagnosticStep[];
   documentation: RepairDocumentation;
   diagnosticMode: DiagnosticMode;
+  /** Historia mentora: pary (pytanie/wynik użytkownika → odpowiedź AI). */
+  diagnosisSteps: RepairDiagnosisStepEntry[];
 };
 
-/** Szkic z formularza „nowa naprawa” — bez pól uzupełnianych przy zapisie w `App`. Zawiera m.in. `diagnosticMode`. */
+/** Szkic z formularza „nowa naprawa” — bez pól uzupełnianych przy zapisie w `App`. Zawiera m.in. `diagnosticMode`, `diagnosisSteps`. */
 export type RepairDraft = Omit<Repair, "id" | "status" | "notes" | "diagnosticSteps">;
 
 export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {

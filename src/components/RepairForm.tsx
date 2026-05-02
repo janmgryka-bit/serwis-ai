@@ -80,6 +80,7 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
       symptom: symptom.trim(),
       documentation,
       diagnosticMode,
+      diagnosisSteps: [],
     };
     if (!trimmed.device_type || !trimmed.brand || !trimmed.symptom) {
       return;

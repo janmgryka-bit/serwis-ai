@@ -18,6 +18,7 @@ const initialRepairs: Repair[] = [
     status: "diagnoza",
     notes: "",
     diagnosticSteps: [],
+    diagnosisSteps: [],
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
     diagnosticMode: "no_display",
   },
@@ -35,6 +36,7 @@ const initialRepairs: Repair[] = [
     ),
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
     diagnosticMode: "no_power",
+    diagnosisSteps: [],
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
@@ -46,6 +48,7 @@ const initialRepairs: Repair[] = [
     status: "nowa",
     notes: "",
     diagnosticSteps: [],
+    diagnosisSteps: [],
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
     diagnosticMode: "other",
   },
@@ -65,6 +68,7 @@ function App() {
       status: "nowa",
       notes: "",
       diagnosticSteps: buildDiagnosticStepsForSymptom(draft.symptom),
+      diagnosisSteps: draft.diagnosisSteps ?? [],
     };
     setRepairs((prev) => [newRepair, ...prev]);
     setView("list");

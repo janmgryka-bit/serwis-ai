@@ -3,6 +3,7 @@ import {
   DEFAULT_REPAIR_DOCUMENTATION,
   type Repair,
   type DiagnosticMode,
+  type RepairDiagnosisStepEntry,
   type RepairDiagnosticStep,
   type RepairDocumentation,
   type RepairDocumentationStatus,
@@ -68,6 +69,21 @@ function parseDocumentation(raw: unknown): RepairDocumentation {
   };
 }
 
+function parseDiagnosisSteps(raw: unknown): RepairDiagnosisStepEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: RepairDiagnosisStepEntry[] = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const s = item as Record<string, unknown>;
+    const stepNum = typeof s.step === "number" ? s.step : Number(s.step);
+    if (!Number.isFinite(stepNum) || typeof s.question !== "string" || typeof s.answer !== "string") {
+      continue;
+    }
+    out.push({ step: stepNum, question: s.question, answer: s.answer });
+  }
+  return out;
+}
+
 function parseDiagnosticSteps(raw: unknown): RepairDiagnosticStep[] {
   if (!Array.isArray(raw)) return [];
   const out: RepairDiagnosticStep[] = [];
@@ -108,6 +124,8 @@ function parseRepair(x: unknown): Repair | null {
   const diagnosticMode: DiagnosticMode = isDiagnosticModeValue(o.diagnosticMode)
     ? o.diagnosticMode
     : "other";
+  const diagnosisSteps =
+    "diagnosisSteps" in o ? parseDiagnosisSteps(o.diagnosisSteps) : [];
   return {
     id: o.id,
     device_type: o.device_type,
@@ -120,6 +138,7 @@ function parseRepair(x: unknown): Repair | null {
     diagnosticSteps,
     documentation,
     diagnosticMode,
+    diagnosisSteps,
   };
 }
 

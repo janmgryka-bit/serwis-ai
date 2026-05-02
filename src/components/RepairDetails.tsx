@@ -17,6 +17,7 @@ import {
 import {
   DIAGNOSTIC_MODE_LABELS,
   type Repair,
+  type RepairDiagnosisStepEntry,
   type RepairDocumentationStatus,
   REPAIR_STATUS_LABELS,
 } from "../types/repair";
@@ -28,6 +29,14 @@ import {
   OPENAI_MENTOR_MISSING_KEY,
   type MentorMessage,
 } from "../lib/openaiMentor";
+function diagnosisStepsToMentorHistory(steps: RepairDiagnosisStepEntry[]): MentorMessage[] {
+  const out: MentorMessage[] = [];
+  for (const s of steps) {
+    out.push({ role: "user", content: s.question });
+    out.push({ role: "assistant", content: s.answer });
+  }
+  return out;
+}
 
 type RepairDetailsProps = {
   repair: Repair;
@@ -73,7 +82,6 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   const steps = repair.diagnosticSteps;
   const [mentorOpen, setMentorOpen] = useState(false);
   const [mentorQuestion, setMentorQuestion] = useState("");
-  const [mentorMessages, setMentorMessages] = useState<MentorMessage[]>([]);
   const [mentorLoading, setMentorLoading] = useState(false);
   const [mentorError, setMentorError] = useState<string | null>(null);
   const [alw3v, setAlw3v] = useState("");
@@ -83,7 +91,6 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   useEffect(() => {
     setMentorOpen(false);
     setMentorQuestion("");
-    setMentorMessages([]);
     setMentorLoading(false);
     setMentorError(null);
     setAlw3v("");
@@ -102,22 +109,26 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
 
   async function handleMentorSend() {
     setMentorError(null);
-    setMentorMessages([]);
     setAlw3v("");
     setAlw5v("");
     setResultInput("");
     setMentorLoading(true);
     try {
       const context = buildAiContext(repair);
+      const q = buildMentorQuestion(mentorQuestion);
       const text = await askOpenAiMentor({
         context,
-        question: buildMentorQuestion(mentorQuestion),
-        history: [],
+        question: q,
+        history: diagnosisStepsToMentorHistory(repair.diagnosisSteps),
       });
-      setMentorMessages([
-        { role: "user", content: mentorQuestion },
-        { role: "assistant", content: text },
-      ]);
+      const nextStep = repair.diagnosisSteps.length + 1;
+      onUpdateRepair({
+        ...repair,
+        diagnosisSteps: [
+          ...repair.diagnosisSteps,
+          { step: nextStep, question: q, answer: text },
+        ],
+      });
     } catch (e) {
       const msg =
         e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
@@ -143,14 +154,16 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
       const text = await askOpenAiMentor({
         context,
         question: apiQuestion,
-        history: mentorMessages,
+        history: diagnosisStepsToMentorHistory(repair.diagnosisSteps),
       });
-      const userLine = `Wynik poprzedniego kroku: ${payload}`;
-      setMentorMessages((prev) => [
-        ...prev,
-        { role: "user", content: userLine },
-        { role: "assistant", content: text },
-      ]);
+      const nextStep = repair.diagnosisSteps.length + 1;
+      onUpdateRepair({
+        ...repair,
+        diagnosisSteps: [
+          ...repair.diagnosisSteps,
+          { step: nextStep, question: apiQuestion, answer: text },
+        ],
+      });
       setAlw3v("");
       setAlw5v("");
       setResultInput("");
@@ -224,31 +237,37 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
               </Button>
 
               <Text size="sm" fw={500}>
-                Rozmowa
+                Historia kroków
               </Text>
               <ScrollArea h="min(52vh, 28rem)" type="auto" offsetScrollbars="present">
-                <Stack gap="sm" pr="xs" aria-live="polite">
-                  {mentorMessages.length === 0 && !mentorLoading && !mentorError ? (
+                <Stack gap="md" pr="xs" aria-live="polite">
+                  {repair.diagnosisSteps.length === 0 && !mentorLoading && !mentorError ? (
                     <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
-                      Tu pojawi się rozmowa z mentorem…
+                      Wyślij pierwsze pytanie — pojawi się krok 1.
                     </Text>
                   ) : null}
-                  {mentorMessages.map((m, i) => (
-                    <Paper
-                      key={`${i}-${m.role}`}
-                      p="sm"
-                      radius="sm"
-                      withBorder
-                      bg={m.role === "user" ? "var(--mantine-color-teal-9)" : "dark.6"}
-                    >
-                      <Text size="xs" c="dimmed" tt="uppercase" mb={6}>
-                        {m.role === "user" ? "Ty" : "Mentor"}
-                      </Text>
-                      <Text component="pre" size="sm" ff="monospace" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                        {m.content}
-                      </Text>
-                    </Paper>
-                  ))}
+                  {repair.diagnosisSteps.map((s, i) => {
+                    const wynik = repair.diagnosisSteps[i + 1]?.question;
+                    return (
+                      <Paper key={s.step} p="sm" radius="sm" withBorder bg="dark.6">
+                        <Text size="xs" c="teal.4" tt="uppercase" fw={600} mb={8}>
+                          KROK {s.step}
+                        </Text>
+                        <Text size="xs" c="dimmed" tt="uppercase" mb={4}>
+                          AI
+                        </Text>
+                        <Text component="pre" size="sm" ff="monospace" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                          {s.answer}
+                        </Text>
+                        <Text size="xs" c="dimmed" tt="uppercase" mb={4} mt="sm">
+                          WYNIK
+                        </Text>
+                        <Text component="pre" size="sm" ff="monospace" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                          {wynik ?? "—"}
+                        </Text>
+                      </Paper>
+                    );
+                  })}
                   {mentorLoading ? (
                     <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
                       Myślę…
@@ -262,7 +281,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
                 </Stack>
               </ScrollArea>
 
-              {mentorMessages.some((m) => m.role === "assistant") ? (
+              {repair.diagnosisSteps.length > 0 ? (
                 <Stack gap="md" pt="sm" style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}>
                   <Title order={5} size="sm" c="dimmed" tt="uppercase">
                     Podaj wynik pomiaru / obserwacji
