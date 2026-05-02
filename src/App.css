@@ -1,4 +1,7 @@
 :root {
+  --app-content-max: 1040px;
+  --app-gutter: clamp(0.75rem, 3vw, 1.5rem);
+
   --bg: #0c0e12;
   --bg-elevated: #12151c;
   --bg-input: #1a1f28;
@@ -38,12 +41,29 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.app__content {
+  width: 100%;
+  max-width: var(--app-content-max);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--app-gutter);
+  padding-right: var(--app-gutter);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.app__content--header {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 
 .app__header {
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
-  padding: 1rem 1.5rem;
+  padding: 0;
 }
 
 .app__brand {
@@ -74,13 +94,26 @@ body {
 
 .app__main {
   flex: 1;
-  padding: 1.25rem 1.5rem 2rem;
-  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   width: 100%;
-  margin: 0 auto;
+  padding: 0;
+}
+
+.app__content--main {
+  flex: 1;
+  padding-top: 1.25rem;
+  padding-bottom: 2rem;
 }
 
 /* RepairList */
+.repair-list {
+  width: 100%;
+  min-width: 0;
+}
+
 .repair-list__toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -114,6 +147,9 @@ body {
 
 .table-wrap {
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-elevated);
@@ -121,6 +157,8 @@ body {
 
 .data-table {
   width: 100%;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.875rem;
 }
@@ -130,6 +168,45 @@ body {
   padding: 0.65rem 0.85rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.data-table th:nth-child(1),
+.data-table td:nth-child(1) {
+  width: 9%;
+}
+
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+  width: 10%;
+}
+
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+  width: 11%;
+}
+
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) {
+  width: 14%;
+}
+
+.data-table th:nth-child(5),
+.data-table td:nth-child(5) {
+  width: 14%;
+}
+
+.data-table th:nth-child(6),
+.data-table td:nth-child(6) {
+  width: 30%;
+}
+
+.data-table th:nth-child(7),
+.data-table td:nth-child(7) {
+  width: 12%;
 }
 
 .data-table th {
@@ -173,13 +250,12 @@ body {
 }
 
 .symptom-cell {
-  max-width: 280px;
   white-space: normal;
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   line-height: 1.35;
 }
 
@@ -267,6 +343,10 @@ body {
 
 /* Mentor AI (RepairDetails) */
 .mentor-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin-bottom: 1.25rem;
   padding: 1.1rem 1.25rem;
   border-radius: 8px;
@@ -295,6 +375,8 @@ body {
 
 .mentor-panel__textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 72px;
 }
 
@@ -314,8 +396,11 @@ body {
 }
 
 .mentor-panel__thread {
+  min-width: 0;
+  max-width: 100%;
   min-height: 4.5rem;
   max-height: min(52vh, 28rem);
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 0.65rem 0.75rem;
   border-radius: 6px;
@@ -362,6 +447,9 @@ body {
 .mentor-panel__msg-body {
   white-space: pre-wrap;
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mentor-panel__reply-placeholder {
@@ -396,12 +484,17 @@ body {
 
 .mentor-panel__followup-textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 72px;
 }
 
 /* RepairDetails */
 .repair-details {
-  max-width: 640px;
+  width: 100%;
+  max-width: min(640px, 100%);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .repair-details__toolbar {
@@ -411,6 +504,7 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 1.25rem;
+  min-width: 0;
 }
 
 .repair-details__back {
@@ -418,6 +512,8 @@ body {
 }
 
 .repair-details__panel {
+  max-width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-elevated);
@@ -464,6 +560,8 @@ body {
   white-space: pre-wrap;
   margin: 0;
   line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .repair-details__checklist-hint {
@@ -485,11 +583,12 @@ body {
 
 .detail-grid__row {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: minmax(6.5rem, 8.75rem) minmax(0, 1fr);
   gap: 0.5rem 1rem;
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--border);
   align-items: baseline;
+  min-width: 0;
 }
 
 .detail-grid__row:last-child {
@@ -521,6 +620,8 @@ body {
 .detail-grid dd {
   margin: 0;
   font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .checklist {
@@ -570,7 +671,10 @@ body {
 
 /* RepairForm */
 .repair-form {
-  max-width: 480px;
+  width: 100%;
+  max-width: min(480px, 100%);
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .repair-form__header {
@@ -624,6 +728,9 @@ body {
   background: var(--bg-input);
   color: var(--text);
   outline: none;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .input:focus {

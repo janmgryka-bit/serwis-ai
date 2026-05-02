@@ -91,33 +91,37 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <div className="app__brand">
-          <span className="app__logo" aria-hidden>
-            ◈
-          </span>
-          <div>
-            <h1 className="app__title">Serwis AI</h1>
-            <p className="app__tagline">Rejestr napraw · lokalny stan</p>
+        <div className="app__content app__content--header">
+          <div className="app__brand">
+            <span className="app__logo" aria-hidden>
+              ◈
+            </span>
+            <div>
+              <h1 className="app__title">Serwis AI</h1>
+              <p className="app__tagline">Rejestr napraw · lokalny stan</p>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="app__main">
-        {view === "list" ? (
-          <RepairList
-            repairs={repairs}
-            onNewRepair={() => setView("form")}
-            onSelectRepair={openDetails}
-          />
-        ) : view === "form" ? (
-          <RepairForm onSave={handleSave} onCancel={goToList} />
-        ) : selectedRepair ? (
-          <RepairDetails
-            repair={selectedRepair}
-            onBack={goToList}
-            onUpdateRepair={updateRepair}
-          />
-        ) : null}
+        <div className="app__content app__content--main">
+          {view === "list" ? (
+            <RepairList
+              repairs={repairs}
+              onNewRepair={() => setView("form")}
+              onSelectRepair={openDetails}
+            />
+          ) : view === "form" ? (
+            <RepairForm onSave={handleSave} onCancel={goToList} />
+          ) : selectedRepair ? (
+            <RepairDetails
+              repair={selectedRepair}
+              onBack={goToList}
+              onUpdateRepair={updateRepair}
+            />
+          ) : null}
+        </div>
       </main>
     </div>
   );
