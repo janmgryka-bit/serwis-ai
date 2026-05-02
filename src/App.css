@@ -255,6 +255,65 @@ body {
   background: rgba(61, 214, 197, 0.08);
 }
 
+.btn--ai-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(61, 214, 197, 0.12);
+}
+
+/* Mentor AI (RepairDetails) */
+.mentor-panel {
+  margin-bottom: 1.25rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid #6b8cff;
+  background: linear-gradient(165deg, #141a26 0%, var(--bg-elevated) 45%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.mentor-panel__title {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8aa4ff;
+}
+
+.mentor-panel__field {
+  margin-bottom: 0.85rem;
+}
+
+.mentor-panel__field:last-child {
+  margin-bottom: 0;
+}
+
+.mentor-panel__textarea {
+  width: 100%;
+  min-height: 72px;
+}
+
+.mentor-panel__row {
+  margin-bottom: 0.85rem;
+}
+
+.mentor-panel__reply {
+  min-height: 4.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.mentor-panel__reply-placeholder {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-style: italic;
+}
+
 /* RepairDetails */
 .repair-details {
   max-width: 640px;

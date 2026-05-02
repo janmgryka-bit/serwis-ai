@@ -1,4 +1,8 @@
+import { useEffect, useState } from "react";
 import { type Repair, REPAIR_STATUS_LABELS } from "../types/repair";
+import { buildAiContext } from "../lib/buildAiContext";
+
+const MOCK_AI_REPLY = "Sprawdź napięcia 3V/5V oraz sygnały EN.";
 
 type RepairDetailsProps = {
   repair: Repair;
@@ -12,6 +16,15 @@ function badgeClass(status: Repair["status"]): string {
 
 export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
   const steps = repair.diagnosticSteps;
+  const [mentorOpen, setMentorOpen] = useState(false);
+  const [mentorQuestion, setMentorQuestion] = useState("");
+  const [mentorReply, setMentorReply] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMentorOpen(false);
+    setMentorQuestion("");
+    setMentorReply(null);
+  }, [repair.id]);
 
   function toggleDiagnosticStep(stepId: string) {
     onUpdateRepair({
@@ -22,16 +35,57 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     });
   }
 
+  function handleMentorSend() {
+    buildAiContext(repair);
+    setMentorReply(MOCK_AI_REPLY);
+  }
+
   return (
     <div className="repair-details">
       <div className="repair-details__toolbar">
         <button type="button" className="btn btn--ghost repair-details__back" onClick={onBack}>
           ← Lista napraw
         </button>
-        <button type="button" className="btn btn--ai">
+        <button
+          type="button"
+          className={`btn btn--ai${mentorOpen ? " btn--ai-active" : ""}`}
+          onClick={() => setMentorOpen((o) => !o)}
+        >
           🤖 Zapytaj AI
         </button>
       </div>
+
+      {mentorOpen ? (
+        <section className="mentor-panel" aria-label="Mentor AI">
+          <h3 className="mentor-panel__title">Mentor AI</h3>
+          <label className="field mentor-panel__field">
+            <span className="field__label">Twoje pytanie</span>
+            <textarea
+              className="input input--area mentor-panel__textarea"
+              value={mentorQuestion}
+              onChange={(e) => setMentorQuestion(e.target.value)}
+              placeholder="Np. co sprawdzić jako pierwsze na płycie?"
+              rows={3}
+              spellCheck={false}
+            />
+          </label>
+          <div className="mentor-panel__row">
+            <button type="button" className="btn btn--primary" onClick={handleMentorSend}>
+              Wyślij
+            </button>
+          </div>
+          <label className="field mentor-panel__field">
+            <span className="field__label">Odpowiedź</span>
+            <div className="mentor-panel__reply mono" aria-live="polite">
+              {mentorReply ?? (
+                <span className="mentor-panel__reply-placeholder muted">
+                  Tu pojawi się odpowiedź mentora…
+                </span>
+              )}
+            </div>
+          </label>
+        </section>
+      ) : null}
 
       <section className="repair-details__panel">
         <h2 className="repair-details__title">Szczegóły naprawy</h2>
