@@ -1,9 +1,4 @@
-import { useEffect, useState } from "react";
 import { type Repair, REPAIR_STATUS_LABELS } from "../types/repair";
-import {
-  POWER_DIAGNOSTIC_STEPS,
-  shouldShowPowerDiagnostic,
-} from "../lib/powerDiagnosticChecklist";
 
 type RepairDetailsProps = {
   repair: Repair;
@@ -16,20 +11,14 @@ function badgeClass(status: Repair["status"]): string {
 }
 
 export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
-  const showChecklist = shouldShowPowerDiagnostic(repair.symptom);
-  const [done, setDone] = useState<boolean[]>(() =>
-    POWER_DIAGNOSTIC_STEPS.map(() => false),
-  );
+  const steps = repair.diagnosticSteps;
 
-  useEffect(() => {
-    setDone(POWER_DIAGNOSTIC_STEPS.map(() => false));
-  }, [repair.id]);
-
-  function toggleStep(index: number) {
-    setDone((prev) => {
-      const next = [...prev];
-      next[index] = !next[index];
-      return next;
+  function toggleDiagnosticStep(stepId: string) {
+    onUpdateRepair({
+      ...repair,
+      diagnosticSteps: repair.diagnosticSteps.map((s) =>
+        s.id === stepId ? { ...s, done: !s.done } : s,
+      ),
     });
   }
 
@@ -96,31 +85,41 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
         />
       </section>
 
-      {showChecklist ? (
-        <section className="repair-details__panel repair-details__panel--checklist">
-          <h3 className="repair-details__subtitle">Checklista diagnostyczna</h3>
-          <p className="repair-details__checklist-hint">
-            Objaw wskazuje na problem ze startem / zasilaniem — odhacz wykonane kroki.
+      <section className="repair-details__panel repair-details__panel--checklist">
+        <h3 className="repair-details__subtitle">Checklista diagnostyczna</h3>
+        {steps.length === 0 ? (
+          <p className="repair-details__checklist-empty muted">
+            Brak automatycznej checklisty dla tego objawu.
           </p>
-          <ul className="checklist">
-            {POWER_DIAGNOSTIC_STEPS.map((label, i) => (
-              <li key={label}>
-                <label className="checklist__item">
-                  <input
-                    type="checkbox"
-                    className="checklist__checkbox"
-                    checked={done[i] ?? false}
-                    onChange={() => toggleStep(i)}
-                  />
-                  <span className={done[i] ? "checklist__label checklist__label--done" : "checklist__label"}>
-                    {label}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        ) : (
+          <>
+            <p className="repair-details__checklist-hint">
+              Objaw wskazuje na problem ze startem / zasilaniem — odhacz wykonane kroki.
+            </p>
+            <ul className="checklist">
+              {steps.map((step) => (
+                <li key={step.id}>
+                  <label className="checklist__item">
+                    <input
+                      type="checkbox"
+                      className="checklist__checkbox"
+                      checked={step.done}
+                      onChange={() => toggleDiagnosticStep(step.id)}
+                    />
+                    <span
+                      className={
+                        step.done ? "checklist__label checklist__label--done" : "checklist__label"
+                      }
+                    >
+                      {step.label}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
     </div>
   );
 }

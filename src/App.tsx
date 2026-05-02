@@ -3,6 +3,7 @@ import { RepairList } from "./components/RepairList";
 import { RepairForm } from "./components/RepairForm";
 import { RepairDetails } from "./components/RepairDetails";
 import { useLocalStorageRepairs } from "./hooks/useLocalStorageRepairs";
+import { buildDiagnosticStepsForSymptom } from "./lib/powerDiagnosticChecklist";
 import type { Repair, RepairDraft } from "./types/repair";
 import "./App.css";
 
@@ -16,6 +17,7 @@ const initialRepairs: Repair[] = [
     symptom: "Brak obrazu po rozgrzaniu, artefakty na zewnętrznym monitorze.",
     status: "diagnoza",
     notes: "",
+    diagnosticSteps: [],
   },
   {
     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
@@ -26,6 +28,9 @@ const initialRepairs: Repair[] = [
     symptom: "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     status: "w naprawie",
     notes: "",
+    diagnosticSteps: buildDiagnosticStepsForSymptom(
+      "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
+    ),
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
@@ -36,6 +41,7 @@ const initialRepairs: Repair[] = [
     symptom: "Wolny start, dysk SMART ostrzeżenie.",
     status: "nowa",
     notes: "",
+    diagnosticSteps: [],
   },
 ];
 
@@ -52,6 +58,7 @@ function App() {
       id: crypto.randomUUID(),
       status: "nowa",
       notes: "",
+      diagnosticSteps: buildDiagnosticStepsForSymptom(draft.symptom),
     };
     setRepairs((prev) => [newRepair, ...prev]);
     setView("list");

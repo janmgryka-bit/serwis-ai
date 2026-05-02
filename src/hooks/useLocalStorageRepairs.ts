@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Repair, RepairStatus } from "../types/repair";
+import type { Repair, RepairDiagnosticStep, RepairStatus } from "../types/repair";
 
 const STORAGE_KEY = "serwis-ai:repairs";
 
@@ -13,6 +13,24 @@ const STATUSES: RepairStatus[] = [
 
 function isRepairStatus(x: unknown): x is RepairStatus {
   return typeof x === "string" && (STATUSES as readonly string[]).includes(x);
+}
+
+function parseDiagnosticSteps(raw: unknown): RepairDiagnosticStep[] {
+  if (!Array.isArray(raw)) return [];
+  const out: RepairDiagnosticStep[] = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const s = item as Record<string, unknown>;
+    if (
+      typeof s.id !== "string" ||
+      typeof s.label !== "string" ||
+      typeof s.done !== "boolean"
+    ) {
+      continue;
+    }
+    out.push({ id: s.id, label: s.label, done: s.done });
+  }
+  return out;
 }
 
 function parseRepair(x: unknown): Repair | null {
@@ -30,6 +48,8 @@ function parseRepair(x: unknown): Repair | null {
     return null;
   }
   const notes = typeof o.notes === "string" ? o.notes : "";
+  const diagnosticSteps =
+    "diagnosticSteps" in o ? parseDiagnosticSteps(o.diagnosticSteps) : [];
   return {
     id: o.id,
     device_type: o.device_type,
@@ -39,6 +59,7 @@ function parseRepair(x: unknown): Repair | null {
     symptom: o.symptom,
     status: o.status,
     notes,
+    diagnosticSteps,
   };
 }
 

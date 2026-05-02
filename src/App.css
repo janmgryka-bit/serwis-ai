@@ -329,6 +329,12 @@ body {
   line-height: 1.45;
 }
 
+.repair-details__checklist-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .detail-grid {
   margin: 0;
 }
