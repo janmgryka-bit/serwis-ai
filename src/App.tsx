@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RepairList } from "./components/RepairList";
 import { RepairForm } from "./components/RepairForm";
+import { RepairDetails } from "./components/RepairDetails";
 import type { Repair, RepairDraft } from "./types/repair";
 import "./App.css";
 
@@ -20,7 +21,7 @@ const initialRepairs: Repair[] = [
     brand: "Custom",
     model: "B450 / Ryzen 5",
     motherboard: "MSI B450 Tomahawk",
-    symptom: "Pętla rozruchu, nie wchodzi do BIOS.",
+    symptom: "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     status: "w naprawie",
   },
   {
@@ -34,11 +35,12 @@ const initialRepairs: Repair[] = [
   },
 ];
 
-type View = "list" | "form";
+type View = "list" | "form" | "details";
 
 function App() {
   const [repairs, setRepairs] = useState<Repair[]>(initialRepairs);
   const [view, setView] = useState<View>("list");
+  const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
 
   function handleSave(draft: RepairDraft) {
     const newRepair: Repair = {
@@ -49,6 +51,26 @@ function App() {
     setRepairs((prev) => [newRepair, ...prev]);
     setView("list");
   }
+
+  const selectedRepair =
+    selectedRepairId != null ? repairs.find((r) => r.id === selectedRepairId) : undefined;
+
+  function goToList() {
+    setSelectedRepairId(null);
+    setView("list");
+  }
+
+  useEffect(() => {
+    if (view === "details" && !selectedRepair) {
+      setSelectedRepairId(null);
+      setView("list");
+    }
+  }, [view, selectedRepair]);
+
+  const openDetails = (r: Repair) => {
+    setSelectedRepairId(r.id);
+    setView("details");
+  };
 
   return (
     <div className="app">
@@ -66,10 +88,16 @@ function App() {
 
       <main className="app__main">
         {view === "list" ? (
-          <RepairList repairs={repairs} onNewRepair={() => setView("form")} />
-        ) : (
-          <RepairForm onSave={handleSave} onCancel={() => setView("list")} />
-        )}
+          <RepairList
+            repairs={repairs}
+            onNewRepair={() => setView("form")}
+            onSelectRepair={openDetails}
+          />
+        ) : view === "form" ? (
+          <RepairForm onSave={handleSave} onCancel={goToList} />
+        ) : selectedRepair ? (
+          <RepairDetails repair={selectedRepair} onBack={goToList} />
+        ) : null}
       </main>
     </div>
   );

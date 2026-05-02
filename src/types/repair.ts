@@ -17,3 +17,11 @@ export type Repair = {
 };
 
 export type RepairDraft = Omit<Repair, "id" | "status">;
+
+export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {
+  nowa: "Nowa",
+  diagnoza: "Diagnoza",
+  "w naprawie": "W naprawie",
+  gotowa: "Gotowa",
+  wydana: "Wydana",
+};

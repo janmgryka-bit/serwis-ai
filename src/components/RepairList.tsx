@@ -1,19 +1,13 @@
 import type { Repair } from "../types/repair";
+import { REPAIR_STATUS_LABELS } from "../types/repair";
 
 type RepairListProps = {
   repairs: Repair[];
   onNewRepair: () => void;
+  onSelectRepair: (repair: Repair) => void;
 };
 
-const statusLabel: Record<Repair["status"], string> = {
-  nowa: "Nowa",
-  diagnoza: "Diagnoza",
-  "w naprawie": "W naprawie",
-  gotowa: "Gotowa",
-  wydana: "Wydana",
-};
-
-export function RepairList({ repairs, onNewRepair }: RepairListProps) {
+export function RepairList({ repairs, onNewRepair, onSelectRepair }: RepairListProps) {
   return (
     <div className="repair-list">
       <header className="repair-list__toolbar">
@@ -44,7 +38,20 @@ export function RepairList({ repairs, onNewRepair }: RepairListProps) {
             </thead>
             <tbody>
               {repairs.map((r) => (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  className="data-table__row data-table__row--clickable"
+                  onClick={() => onSelectRepair(r)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelectRepair(r);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Szczegóły naprawy ${r.brand} ${r.model}`}
+                >
                   <td className="mono" title={r.id}>
                     {r.id.slice(0, 8)}…
                   </td>
@@ -55,7 +62,7 @@ export function RepairList({ repairs, onNewRepair }: RepairListProps) {
                   <td className="symptom-cell">{r.symptom}</td>
                   <td>
                     <span className={`badge badge--${r.status.replace(/\s/g, "-")}`}>
-                      {statusLabel[r.status]}
+                      {REPAIR_STATUS_LABELS[r.status]}
                     </span>
                   </td>
                 </tr>
