@@ -2,31 +2,15 @@ import { useMemo, type KeyboardEvent } from "react";
 import { Badge, Box, Button, Container, Group, Paper, Text, Title } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from "mantine-react-table";
-import type { Repair, RepairStatus } from "../types/repair";
+import type { Repair } from "../types/repair";
 import { REPAIR_STATUS_LABELS } from "../types/repair";
+import { repairStatusBadgeColor } from "../lib/repairStatusBadgeColor";
 
 type RepairListProps = {
   repairs: Repair[];
   onNewRepair: () => void;
   onSelectRepair: (repair: Repair) => void;
 };
-
-function statusBadgeColor(status: RepairStatus) {
-  switch (status) {
-    case "nowa":
-      return "gray";
-    case "diagnoza":
-      return "yellow";
-    case "w naprawie":
-      return "teal";
-    case "gotowa":
-      return "green";
-    case "wydana":
-      return "dark";
-    default:
-      return "gray";
-  }
-}
 
 export function RepairList({ repairs, onNewRepair, onSelectRepair }: RepairListProps) {
   const isNarrow = useMediaQuery("(max-width: 720px)");
@@ -98,7 +82,7 @@ export function RepairList({ repairs, onNewRepair, onSelectRepair }: RepairListP
         enableSorting: false,
         size: 130,
         Cell: ({ row }) => (
-          <Badge variant="light" color={statusBadgeColor(row.original.status)} size="sm">
+          <Badge variant="light" color={repairStatusBadgeColor(row.original.status)} size="sm">
             {REPAIR_STATUS_LABELS[row.original.status]}
           </Badge>
         ),

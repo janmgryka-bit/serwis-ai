@@ -1,4 +1,16 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
+import {
+  Button,
+  Checkbox,
+  Container,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+  Title,
+} from "@mantine/core";
 import type { RepairDraft } from "../types/repair";
 import {
   buildSymptomString,
@@ -35,7 +47,7 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
     setSymptomChecked((c) => ({ ...c, [id]: !c[id] }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const symptom = buildSymptomString(symptomChecked, otherSymptom);
     const trimmed: RepairDraft = {
@@ -51,81 +63,79 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
     onSave(trimmed);
   }
 
-  function field<K extends keyof typeof emptyFields>(key: K, label: string, required?: boolean) {
-    return (
-      <label className="field">
-        <span className="field__label">
-          {label}
-          {required ? <span className="field__req"> *</span> : null}
-        </span>
-        <input
-          className="input"
-          value={fields[key]}
-          onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
-          required={Boolean(required)}
-          autoComplete="off"
-        />
-      </label>
-    );
-  }
-
   return (
-    <div className="repair-form">
-      <header className="repair-form__header">
-        <h2 className="repair-form__title">Nowa naprawa</h2>
-        <p className="repair-form__hint">
-          Wymagane: typ urządzenia, marka oraz co najmniej jeden objaw (lista lub pole „Inny”).
-        </p>
-      </header>
+    <Container size="sm" px={{ base: "sm", sm: "md" }} py="md">
+      <Stack gap="lg">
+        <Stack gap="xs">
+          <Title order={3}>Nowa naprawa</Title>
+          <Text size="sm" c="dimmed">
+            Wymagane: typ urządzenia, marka oraz co najmniej jeden objaw (lista lub pole „Inny”).
+          </Text>
+        </Stack>
 
-      <form className="repair-form__body" onSubmit={handleSubmit}>
-        {field("device_type", "Typ urządzenia", true)}
-        {field("brand", "Marka", true)}
-        {field("model", "Model")}
-        {field("motherboard", "Płyta główna")}
+        <Paper component="form" withBorder shadow="sm" p="lg" radius="md" onSubmit={handleSubmit}>
+          <Stack gap="md">
+            <TextInput
+              label="Typ urządzenia"
+              required
+              value={fields.device_type}
+              onChange={(e) => setFields((f) => ({ ...f, device_type: e.target.value }))}
+              autoComplete="off"
+            />
+            <TextInput
+              label="Marka"
+              required
+              value={fields.brand}
+              onChange={(e) => setFields((f) => ({ ...f, brand: e.target.value }))}
+              autoComplete="off"
+            />
+            <TextInput
+              label="Model"
+              value={fields.model}
+              onChange={(e) => setFields((f) => ({ ...f, model: e.target.value }))}
+              autoComplete="off"
+            />
+            <TextInput
+              label="Płyta główna"
+              value={fields.motherboard}
+              onChange={(e) => setFields((f) => ({ ...f, motherboard: e.target.value }))}
+              autoComplete="off"
+            />
 
-        <div className="field repair-form__symptoms">
-          <span className="field__label">
-            Objawy <span className="field__req"> *</span>
-          </span>
-          <ul className="repair-form__symptom-list">
-            {SYMPTOM_PRESET_OPTIONS.map((opt) => (
-              <li key={opt.id}>
-                <label className="repair-form__symptom-item">
-                  <input
-                    type="checkbox"
-                    className="repair-form__symptom-checkbox"
+            <Stack gap="xs">
+              <Text size="xs" fw={500} tt="uppercase" c="dimmed">
+                Objawy <Text span c="teal.4">*</Text>
+              </Text>
+              <Stack gap="xs">
+                {SYMPTOM_PRESET_OPTIONS.map((opt) => (
+                  <Checkbox
+                    key={opt.id}
+                    label={opt.phrase}
                     checked={symptomChecked[opt.id]}
                     onChange={() => togglePreset(opt.id)}
                   />
-                  <span>{opt.phrase}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </div>
+                ))}
+              </Stack>
+            </Stack>
 
-        <label className="field">
-          <span className="field__label">Inny objaw</span>
-          <textarea
-            className="input input--area"
-            value={otherSymptom}
-            onChange={(e) => setOtherSymptom(e.target.value)}
-            rows={3}
-            placeholder="Opcjonalny opis…"
-            spellCheck={false}
-          />
-        </label>
+            <Textarea
+              label="Inny objaw"
+              value={otherSymptom}
+              onChange={(e) => setOtherSymptom(e.target.value)}
+              minRows={3}
+              placeholder="Opcjonalny opis…"
+              spellCheck={false}
+            />
 
-        <div className="repair-form__actions">
-          <button type="button" className="btn btn--ghost" onClick={onCancel}>
-            Anuluj
-          </button>
-          <button type="submit" className="btn btn--primary">
-            Zapisz
-          </button>
-        </div>
-      </form>
-    </div>
+            <Group justify="flex-end" gap="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}>
+              <Button variant="default" color="gray" type="button" onClick={onCancel}>
+                Anuluj
+              </Button>
+              <Button type="submit">Zapisz</Button>
+            </Group>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Container>
   );
 }

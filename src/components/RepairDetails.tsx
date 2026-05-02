@@ -1,6 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Badge,
+  Button,
+  Checkbox,
+  Container,
+  Group,
+  Paper,
+  ScrollArea,
+  SimpleGrid,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+  Title,
+} from "@mantine/core";
 import { type Repair, REPAIR_STATUS_LABELS } from "../types/repair";
 import { buildAiContext } from "../lib/buildAiContext";
+import { repairStatusBadgeColor } from "../lib/repairStatusBadgeColor";
 import {
   askOpenAiMentor,
   OPENAI_MENTOR_MISSING_KEY,
@@ -12,10 +28,6 @@ type RepairDetailsProps = {
   onBack: () => void;
   onUpdateRepair: (updatedRepair: Repair) => void;
 };
-
-function badgeClass(status: Repair["status"]): string {
-  return `badge badge--${status.replace(/\s/g, "-")}`;
-}
 
 /** Tekst do API / historii; `null` gdy wszystkie pola puste. */
 function buildStepResultPayload(alw3v: string, alw5v: string, extra: string): string | null {
@@ -29,6 +41,18 @@ function buildStepResultPayload(alw3v: string, alw5v: string, extra: string): st
   if (lines.length === 0) return null;
   return lines.join("\n");
 }
+
+function isBothAlwZero(alw3v: string, alw5v: string): boolean {
+  const t3 = alw3v.trim();
+  const t5 = alw5v.trim();
+  if (t3 === "" || t5 === "") return false;
+  const v3 = parseFloat(t3);
+  const v5 = parseFloat(t5);
+  return Number.isFinite(v3) && Number.isFinite(v5) && v3 === 0 && v5 === 0;
+}
+
+const CONVERTER_FOCUS =
+  "\n\nBrak napięć 3V/5V ALW mimo obecnego VIN i braku zwarcia. Skup się wyłącznie na diagnostyce przetwornicy 3V/5V i jej sygnałów EN/ACOK/ACIN.";
 
 export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
   const steps = repair.diagnosticSteps;
@@ -97,7 +121,10 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     setMentorLoading(true);
     try {
       const context = buildAiContext(repair);
-      const apiQuestion = `Wynik poprzedniego kroku: ${payload}\nCo dalej?`;
+      const bothZero = isBothAlwZero(alw3v, alw5v);
+      const apiQuestion = bothZero
+        ? `${context}\n\nWynik poprzedniego kroku: ${payload}${CONVERTER_FOCUS}`
+        : `Wynik poprzedniego kroku: ${payload}\nCo dalej?`;
       const text = await askOpenAiMentor({
         context,
         question: apiQuestion,
@@ -123,231 +150,236 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     }
   }
 
+  function detailRow(label: string, value: ReactNode, valueMuted?: boolean) {
+    return (
+      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+        <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }} miw={120}>
+          {label}
+        </Text>
+        <Text size="sm" style={{ flex: 1, textAlign: "right" }} c={valueMuted ? "dimmed" : undefined}>
+          {value}
+        </Text>
+      </Group>
+    );
+  }
+
   return (
-    <div className="repair-details">
-      <div className="repair-details__toolbar">
-        <button type="button" className="btn btn--ghost repair-details__back" onClick={onBack}>
-          ← Lista napraw
-        </button>
-        <button
-          type="button"
-          className={`btn btn--ai${mentorOpen ? " btn--ai-active" : ""}`}
-          onClick={() => setMentorOpen((o) => !o)}
-        >
-          🤖 Zapytaj AI
-        </button>
-      </div>
+    <Container size="sm" px={{ base: "sm", sm: "md" }} py="md">
+      <Stack gap="lg">
+        <Group justify="space-between" align="center" wrap="wrap">
+          <Button variant="subtle" color="gray" onClick={onBack}>
+            ← Lista napraw
+          </Button>
+          <Button
+            variant={mentorOpen ? "light" : "default"}
+            color="teal"
+            onClick={() => setMentorOpen((o) => !o)}
+          >
+            Zapytaj AI
+          </Button>
+        </Group>
 
-      {mentorOpen ? (
-        <section className="mentor-panel" aria-label="Mentor AI">
-          <h3 className="mentor-panel__title">Mentor AI</h3>
-          <label className="field mentor-panel__field">
-            <span className="field__label">Twoje pytanie</span>
-            <textarea
-              className="input input--area mentor-panel__textarea"
-              value={mentorQuestion}
-              onChange={(e) => setMentorQuestion(e.target.value)}
-              placeholder="Np. co sprawdzić jako pierwsze na płycie?"
-              rows={3}
-              spellCheck={false}
-            />
-          </label>
-          <div className="mentor-panel__row">
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => void handleMentorSend()}
-              disabled={mentorLoading}
-            >
-              Wyślij
-            </button>
-          </div>
-          <label className="field mentor-panel__field">
-            <span className="field__label">Rozmowa</span>
-            <div className="mentor-panel__thread" aria-live="polite">
-              {mentorMessages.length === 0 && !mentorLoading && !mentorError ? (
-                <span className="mentor-panel__reply-placeholder muted">
-                  Tu pojawi się rozmowa z mentorem…
-                </span>
-              ) : null}
-              {mentorMessages.map((m, i) => (
-                <div
-                  key={`${i}-${m.role}`}
-                  className={`mentor-panel__msg mentor-panel__msg--${m.role}`}
-                >
-                  <span className="mentor-panel__msg-label">
-                    {m.role === "user" ? "Ty" : "Mentor"}
-                  </span>
-                  <div className="mentor-panel__msg-body mono">{m.content}</div>
-                </div>
-              ))}
-              {mentorLoading ? (
-                <div className="mentor-panel__msg mentor-panel__msg--loading">
-                  <span className="mentor-panel__thinking muted">Myślę…</span>
-                </div>
-              ) : null}
-              {mentorError ? (
-                <div className="mentor-panel__msg mentor-panel__msg--error">
-                  <span className="mentor-panel__error">{mentorError}</span>
-                </div>
-              ) : null}
-            </div>
-          </label>
+        {mentorOpen ? (
+          <Paper
+            withBorder
+            shadow="sm"
+            p="md"
+            radius="md"
+            style={{
+              borderLeftWidth: 4,
+              borderLeftColor: "var(--mantine-color-blue-6)",
+            }}
+            aria-label="Mentor AI"
+          >
+            <Stack gap="md">
+              <Title order={4} size="sm" tt="uppercase" c="blue.3" fw={600}>
+                Mentor AI
+              </Title>
 
-          {mentorMessages.some((m) => m.role === "assistant") ? (
-            <div className="mentor-panel__followup">
-              <h4 className="mentor-panel__followup-title">Podaj wynik pomiaru / obserwacji</h4>
-              <div className="mentor-panel__measures">
-                <label className="field mentor-panel__measure">
-                  <span className="field__label">3V_ALW</span>
-                  <div className="mentor-panel__measure-input-wrap">
-                    <input
+              <Textarea
+                label="Twoje pytanie"
+                value={mentorQuestion}
+                onChange={(e) => setMentorQuestion(e.target.value)}
+                placeholder="Np. co sprawdzić jako pierwsze na płycie?"
+                minRows={3}
+                spellCheck={false}
+              />
+              <Button onClick={() => void handleMentorSend()} loading={mentorLoading}>
+                Wyślij
+              </Button>
+
+              <Text size="sm" fw={500}>
+                Rozmowa
+              </Text>
+              <ScrollArea h="min(52vh, 28rem)" type="auto" offsetScrollbars="present">
+                <Stack gap="sm" pr="xs" aria-live="polite">
+                  {mentorMessages.length === 0 && !mentorLoading && !mentorError ? (
+                    <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
+                      Tu pojawi się rozmowa z mentorem…
+                    </Text>
+                  ) : null}
+                  {mentorMessages.map((m, i) => (
+                    <Paper
+                      key={`${i}-${m.role}`}
+                      p="sm"
+                      radius="sm"
+                      withBorder
+                      bg={m.role === "user" ? "var(--mantine-color-teal-9)" : "dark.6"}
+                    >
+                      <Text size="xs" c="dimmed" tt="uppercase" mb={6}>
+                        {m.role === "user" ? "Ty" : "Mentor"}
+                      </Text>
+                      <Text component="pre" size="sm" ff="monospace" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                        {m.content}
+                      </Text>
+                    </Paper>
+                  ))}
+                  {mentorLoading ? (
+                    <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
+                      Myślę…
+                    </Text>
+                  ) : null}
+                  {mentorError ? (
+                    <Text size="sm" c="red.4">
+                      {mentorError}
+                    </Text>
+                  ) : null}
+                </Stack>
+              </ScrollArea>
+
+              {mentorMessages.some((m) => m.role === "assistant") ? (
+                <Stack gap="md" pt="sm" style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}>
+                  <Title order={5} size="sm" c="dimmed" tt="uppercase">
+                    Podaj wynik pomiaru / obserwacji
+                  </Title>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                    <TextInput
+                      label="3V_ALW"
                       type="number"
-                      className="input mentor-panel__measure-input"
                       inputMode="decimal"
-                      step="any"
+                      rightSection={<Text size="xs">V</Text>}
                       value={alw3v}
                       onChange={(e) => setAlw3v(e.target.value)}
                       disabled={mentorLoading}
                       aria-label="Napięcie 3V ALW w woltach"
                     />
-                    <span className="mentor-panel__unit">V</span>
-                  </div>
-                </label>
-                <label className="field mentor-panel__measure">
-                  <span className="field__label">5V_ALW</span>
-                  <div className="mentor-panel__measure-input-wrap">
-                    <input
+                    <TextInput
+                      label="5V_ALW"
                       type="number"
-                      className="input mentor-panel__measure-input"
                       inputMode="decimal"
-                      step="any"
+                      rightSection={<Text size="xs">V</Text>}
                       value={alw5v}
                       onChange={(e) => setAlw5v(e.target.value)}
                       disabled={mentorLoading}
                       aria-label="Napięcie 5V ALW w woltach"
                     />
-                    <span className="mentor-panel__unit">V</span>
-                  </div>
-                </label>
-              </div>
-              <label className="field mentor-panel__field" htmlFor="resultInput">
-                <span className="field__label">Dodatkowy opis</span>
-                <textarea
-                  id="resultInput"
-                  className="input input--area mentor-panel__followup-textarea"
-                  value={resultInput}
-                  onChange={(e) => setResultInput(e.target.value)}
-                  placeholder="Np. brak zwarcia na głównej, zachowanie po power…"
-                  rows={3}
-                  spellCheck={false}
-                  disabled={mentorLoading}
-                />
-              </label>
-              <div className="mentor-panel__row">
-                <button
-                  type="button"
-                  className="btn btn--primary"
-                  onClick={() => void handleSendStepResult()}
-                  disabled={
-                    mentorLoading || buildStepResultPayload(alw3v, alw5v, resultInput) === null
-                  }
-                >
-                  Wyślij wynik
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+                  </SimpleGrid>
+                  <Textarea
+                    id="resultInput"
+                    label="Dodatkowy opis"
+                    value={resultInput}
+                    onChange={(e) => setResultInput(e.target.value)}
+                    placeholder="Np. brak zwarcia na głównej, zachowanie po power…"
+                    minRows={3}
+                    spellCheck={false}
+                    disabled={mentorLoading}
+                  />
+                  <Button
+                    onClick={() => void handleSendStepResult()}
+                    disabled={mentorLoading || buildStepResultPayload(alw3v, alw5v, resultInput) === null}
+                    loading={mentorLoading}
+                  >
+                    Wyślij wynik
+                  </Button>
+                </Stack>
+              ) : null}
+            </Stack>
+          </Paper>
+        ) : null}
 
-      <section className="repair-details__panel">
-        <h2 className="repair-details__title">Szczegóły naprawy</h2>
-        <p className="repair-details__id mono" title={repair.id}>
-          ID: {repair.id}
-        </p>
+        <Paper withBorder shadow="sm" p="lg" radius="md">
+          <Stack gap="md">
+            <Title order={3}>Szczegóły naprawy</Title>
+            <Text size="xs" c="dimmed" ff="monospace" style={{ wordBreak: "break-all" }} title={repair.id}>
+              ID: {repair.id}
+            </Text>
+            <Stack gap="xs">
+              {detailRow("Typ urządzenia", repair.device_type)}
+              {detailRow("Marka", repair.brand)}
+              {detailRow("Model", repair.model || "—")}
+              {detailRow("Płyta główna", repair.motherboard || "—", true)}
+              <Stack gap={6}>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
+                  Objaw
+                </Text>
+                <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {repair.symptom}
+                </Text>
+              </Stack>
+              <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }} miw={120}>
+                  Status
+                </Text>
+                <Badge variant="light" color={repairStatusBadgeColor(repair.status)}>
+                  {REPAIR_STATUS_LABELS[repair.status]}
+                </Badge>
+              </Group>
+            </Stack>
+          </Stack>
+        </Paper>
 
-        <dl className="detail-grid">
-          <div className="detail-grid__row">
-            <dt>Typ urządzenia</dt>
-            <dd>{repair.device_type}</dd>
-          </div>
-          <div className="detail-grid__row">
-            <dt>Marka</dt>
-            <dd>{repair.brand}</dd>
-          </div>
-          <div className="detail-grid__row">
-            <dt>Model</dt>
-            <dd>{repair.model || "—"}</dd>
-          </div>
-          <div className="detail-grid__row">
-            <dt>Płyta główna</dt>
-            <dd className="muted">{repair.motherboard || "—"}</dd>
-          </div>
-          <div className="detail-grid__row detail-grid__row--block">
-            <dt>Objaw</dt>
-            <dd className="repair-details__symptom">{repair.symptom}</dd>
-          </div>
-          <div className="detail-grid__row">
-            <dt>Status</dt>
-            <dd>
-              <span className={badgeClass(repair.status)}>
-                {REPAIR_STATUS_LABELS[repair.status]}
-              </span>
-            </dd>
-          </div>
-        </dl>
-      </section>
+        <Paper withBorder shadow="sm" p="lg" radius="md">
+          <Title order={4} size="sm" tt="uppercase" c="teal.4" mb="md">
+            Notatki serwisowe
+          </Title>
+          <Textarea
+            value={repair.notes}
+            onChange={(e) => onUpdateRepair({ ...repair, notes: e.target.value })}
+            placeholder="Pomiary, ustalenia, części…"
+            minRows={6}
+            spellCheck={false}
+          />
+        </Paper>
 
-      <section className="repair-details__panel repair-details__panel--notes">
-        <h3 className="repair-details__subtitle repair-details__subtitle--section">
-          Notatki serwisowe
-        </h3>
-        <textarea
-          className="input input--area input--notes"
-          value={repair.notes}
-          onChange={(e) => onUpdateRepair({ ...repair, notes: e.target.value })}
-          placeholder="Pomiary, ustalenia, części…"
-          rows={6}
-          spellCheck={false}
-        />
-      </section>
-
-      <section className="repair-details__panel repair-details__panel--checklist">
-        <h3 className="repair-details__subtitle">Checklista diagnostyczna</h3>
-        {steps.length === 0 ? (
-          <p className="repair-details__checklist-empty muted">
-            Brak automatycznej checklisty dla tego objawu.
-          </p>
-        ) : (
-          <>
-            <p className="repair-details__checklist-hint">
-              Objaw wskazuje na problem ze startem / zasilaniem — odhacz wykonane kroki.
-            </p>
-            <ul className="checklist">
-              {steps.map((step) => (
-                <li key={step.id}>
-                  <label className="checklist__item">
-                    <input
-                      type="checkbox"
-                      className="checklist__checkbox"
-                      checked={step.done}
-                      onChange={() => toggleDiagnosticStep(step.id)}
-                    />
-                    <span
-                      className={
-                        step.done ? "checklist__label checklist__label--done" : "checklist__label"
-                      }
-                    >
-                      {step.label}
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
-    </div>
+        <Paper
+          withBorder
+          shadow="sm"
+          p="lg"
+          radius="md"
+          style={{ borderLeftWidth: 4, borderLeftColor: "var(--mantine-color-teal-6)" }}
+        >
+          <Title order={4} size="sm" tt="uppercase" c="teal.4" mb="sm">
+            Checklista diagnostyczna
+          </Title>
+          {steps.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              Brak automatycznej checklisty dla tego objawu.
+            </Text>
+          ) : (
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                Objaw wskazuje na problem ze startem / zasilaniem — odhacz wykonane kroki.
+              </Text>
+              <Stack gap="xs">
+                {steps.map((step) => (
+                  <Checkbox
+                    key={step.id}
+                    label={step.label}
+                    checked={step.done}
+                    onChange={() => toggleDiagnosticStep(step.id)}
+                    styles={{
+                      label: {
+                        textDecoration: step.done ? "line-through" : undefined,
+                        color: step.done ? "var(--mantine-color-dimmed)" : undefined,
+                      },
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+          )}
+        </Paper>
+      </Stack>
+    </Container>
   );
 }

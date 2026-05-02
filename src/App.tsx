@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { Box, Container, Group, Text, Title } from "@mantine/core";
 import { RepairList } from "./components/RepairList";
 import { RepairForm } from "./components/RepairForm";
 import { RepairDetails } from "./components/RepairDetails";
 import { useLocalStorageRepairs } from "./hooks/useLocalStorageRepairs";
 import { buildDiagnosticStepsForSymptom } from "./lib/powerDiagnosticChecklist";
 import type { Repair, RepairDraft } from "./types/repair";
-import "./App.css";
 
 const initialRepairs: Repair[] = [
   {
@@ -89,23 +89,43 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app__header">
-        <div className="app__content app__content--header">
-          <div className="app__brand">
-            <span className="app__logo" aria-hidden>
+    <Box style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Box
+        component="header"
+        py="sm"
+        style={{
+          borderBottom: "1px solid var(--mantine-color-dark-4)",
+          background: "linear-gradient(180deg, var(--mantine-color-dark-7) 0%, var(--mantine-color-dark-8) 100%)",
+        }}
+      >
+        <Container size="xl" px={{ base: "sm", sm: "md" }}>
+          <Group gap="md" align="center" wrap="nowrap">
+            <Text component="span" size="xl" c="teal.4" aria-hidden>
               ◈
-            </span>
-            <div>
-              <h1 className="app__title">Serwis AI</h1>
-              <p className="app__tagline">Rejestr napraw · lokalny stan</p>
-            </div>
-          </div>
-        </div>
-      </header>
+            </Text>
+            <Box>
+              <Title order={2} size="h4">
+                Serwis AI
+              </Title>
+              <Text size="xs" c="dimmed" ff="monospace" mt={2}>
+                Rejestr napraw · lokalny stan
+              </Text>
+            </Box>
+          </Group>
+        </Container>
+      </Box>
 
-      <main className="app__main">
-        <div className="app__content app__content--main">
+      <Box
+        component="main"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box style={{ flex: 1, minWidth: 0, width: "100%" }}>
           {view === "list" ? (
             <RepairList
               repairs={repairs}
@@ -121,9 +141,9 @@ function App() {
               onUpdateRepair={updateRepair}
             />
           ) : null}
-        </div>
-      </main>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
