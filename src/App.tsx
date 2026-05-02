@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { RepairList } from "./components/RepairList";
 import { RepairForm } from "./components/RepairForm";
 import { RepairDetails } from "./components/RepairDetails";
+import { useLocalStorageRepairs } from "./hooks/useLocalStorageRepairs";
 import type { Repair, RepairDraft } from "./types/repair";
 import "./App.css";
 
@@ -38,7 +39,7 @@ const initialRepairs: Repair[] = [
 type View = "list" | "form" | "details";
 
 function App() {
-  const [repairs, setRepairs] = useState<Repair[]>(initialRepairs);
+  const [repairs, setRepairs] = useLocalStorageRepairs(initialRepairs);
   const [view, setView] = useState<View>("list");
   const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
 
