@@ -1,30 +1,49 @@
 import { useState } from "react";
 import type { RepairDraft } from "../types/repair";
+import {
+  buildSymptomString,
+  SYMPTOM_PRESET_OPTIONS,
+  type SymptomPresetId,
+} from "../lib/repairSymptomForm";
 
 type RepairFormProps = {
   onSave: (draft: RepairDraft) => void;
   onCancel: () => void;
 };
 
-const emptyDraft: RepairDraft = {
+const emptyChecked: Record<SymptomPresetId, boolean> = {
+  "brak-reakcji": false,
+  "nie-uruchamia": false,
+  restartuje: false,
+  "brak-obrazu": false,
+  zalanie: false,
+};
+
+const emptyFields = {
   device_type: "",
   brand: "",
   model: "",
   motherboard: "",
-  symptom: "",
 };
 
 export function RepairForm({ onSave, onCancel }: RepairFormProps) {
-  const [draft, setDraft] = useState<RepairDraft>(emptyDraft);
+  const [fields, setFields] = useState(emptyFields);
+  const [symptomChecked, setSymptomChecked] = useState(emptyChecked);
+  const [otherSymptom, setOtherSymptom] = useState("");
+
+  function togglePreset(id: SymptomPresetId) {
+    setSymptomChecked((c) => ({ ...c, [id]: !c[id] }));
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const symptom = buildSymptomString(symptomChecked, otherSymptom);
     const trimmed: RepairDraft = {
-      device_type: draft.device_type.trim(),
-      brand: draft.brand.trim(),
-      model: draft.model.trim(),
-      motherboard: draft.motherboard.trim(),
-      symptom: draft.symptom.trim(),
+      device_type: fields.device_type.trim(),
+      brand: fields.brand.trim(),
+      model: fields.model.trim(),
+      motherboard: fields.motherboard.trim(),
+      symptom: symptom.trim(),
     };
     if (!trimmed.device_type || !trimmed.brand || !trimmed.symptom) {
       return;
@@ -32,7 +51,7 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
     onSave(trimmed);
   }
 
-  function field<K extends keyof RepairDraft>(key: K, label: string, required?: boolean) {
+  function field<K extends keyof typeof emptyFields>(key: K, label: string, required?: boolean) {
     return (
       <label className="field">
         <span className="field__label">
@@ -41,8 +60,8 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
         </span>
         <input
           className="input"
-          value={draft[key]}
-          onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+          value={fields[key]}
+          onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
           required={Boolean(required)}
           autoComplete="off"
         />
@@ -54,7 +73,9 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
     <div className="repair-form">
       <header className="repair-form__header">
         <h2 className="repair-form__title">Nowa naprawa</h2>
-        <p className="repair-form__hint">Wymagane: typ urządzenia, marka, objaw.</p>
+        <p className="repair-form__hint">
+          Wymagane: typ urządzenia, marka oraz co najmniej jeden objaw (lista lub pole „Inny”).
+        </p>
       </header>
 
       <form className="repair-form__body" onSubmit={handleSubmit}>
@@ -62,17 +83,37 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
         {field("brand", "Marka", true)}
         {field("model", "Model")}
         {field("motherboard", "Płyta główna")}
-        <label className="field">
+
+        <div className="field repair-form__symptoms">
           <span className="field__label">
-            Objaw <span className="field__req"> *</span>
+            Objawy <span className="field__req"> *</span>
           </span>
+          <ul className="repair-form__symptom-list">
+            {SYMPTOM_PRESET_OPTIONS.map((opt) => (
+              <li key={opt.id}>
+                <label className="repair-form__symptom-item">
+                  <input
+                    type="checkbox"
+                    className="repair-form__symptom-checkbox"
+                    checked={symptomChecked[opt.id]}
+                    onChange={() => togglePreset(opt.id)}
+                  />
+                  <span>{opt.phrase}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <label className="field">
+          <span className="field__label">Inny objaw</span>
           <textarea
             className="input input--area"
-            value={draft.symptom}
-            onChange={(e) => setDraft((d) => ({ ...d, symptom: e.target.value }))}
-            required
-            rows={4}
-            placeholder="Opis usterki…"
+            value={otherSymptom}
+            onChange={(e) => setOtherSymptom(e.target.value)}
+            rows={3}
+            placeholder="Opcjonalny opis…"
+            spellCheck={false}
           />
         </label>
 
