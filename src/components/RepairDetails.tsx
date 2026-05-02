@@ -20,6 +20,7 @@ import {
   REPAIR_STATUS_LABELS,
 } from "../types/repair";
 import { buildAiContext } from "../lib/buildAiContext";
+import { buildMentorQuestion } from "../lib/buildMentorQuestion";
 import { repairStatusBadgeColor } from "../lib/repairStatusBadgeColor";
 import {
   askOpenAiMentor,
@@ -109,7 +110,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
       const context = buildAiContext(repair);
       const text = await askOpenAiMentor({
         context,
-        question: mentorQuestion,
+        question: buildMentorQuestion(mentorQuestion),
         history: [],
       });
       setMentorMessages([
