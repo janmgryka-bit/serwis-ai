@@ -17,6 +17,19 @@ function badgeClass(status: Repair["status"]): string {
   return `badge badge--${status.replace(/\s/g, "-")}`;
 }
 
+/** Tekst do API / historii; `null` gdy wszystkie pola puste. */
+function buildStepResultPayload(alw3v: string, alw5v: string, extra: string): string | null {
+  const lines: string[] = [];
+  const t3 = alw3v.trim();
+  const t5 = alw5v.trim();
+  const tex = extra.trim();
+  if (t3 !== "") lines.push(`3V_ALW = ${t3} V`);
+  if (t5 !== "") lines.push(`5V_ALW = ${t5} V`);
+  if (tex !== "") lines.push(`Dodatkowy opis: ${tex}`);
+  if (lines.length === 0) return null;
+  return lines.join("\n");
+}
+
 export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
   const steps = repair.diagnosticSteps;
   const [mentorOpen, setMentorOpen] = useState(false);
@@ -24,6 +37,8 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   const [mentorMessages, setMentorMessages] = useState<MentorMessage[]>([]);
   const [mentorLoading, setMentorLoading] = useState(false);
   const [mentorError, setMentorError] = useState<string | null>(null);
+  const [alw3v, setAlw3v] = useState("");
+  const [alw5v, setAlw5v] = useState("");
   const [resultInput, setResultInput] = useState("");
 
   useEffect(() => {
@@ -32,6 +47,8 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     setMentorMessages([]);
     setMentorLoading(false);
     setMentorError(null);
+    setAlw3v("");
+    setAlw5v("");
     setResultInput("");
   }, [repair.id]);
 
@@ -47,6 +64,8 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   async function handleMentorSend() {
     setMentorError(null);
     setMentorMessages([]);
+    setAlw3v("");
+    setAlw5v("");
     setResultInput("");
     setMentorLoading(true);
     try {
@@ -72,24 +91,26 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   }
 
   async function handleSendStepResult() {
-    const trimmed = resultInput.trim();
-    if (!trimmed) return;
+    const payload = buildStepResultPayload(alw3v, alw5v, resultInput);
+    if (payload == null) return;
     setMentorError(null);
     setMentorLoading(true);
     try {
       const context = buildAiContext(repair);
-      const apiQuestion = `Wynik poprzedniego kroku: ${trimmed}\nCo dalej?`;
+      const apiQuestion = `Wynik poprzedniego kroku: ${payload}\nCo dalej?`;
       const text = await askOpenAiMentor({
         context,
         question: apiQuestion,
         history: mentorMessages,
       });
-      const userLine = `Wynik poprzedniego kroku: ${trimmed}`;
+      const userLine = `Wynik poprzedniego kroku: ${payload}`;
       setMentorMessages((prev) => [
         ...prev,
         { role: "user", content: userLine },
         { role: "assistant", content: text },
       ]);
+      setAlw3v("");
+      setAlw5v("");
       setResultInput("");
     } catch (e) {
       const msg =
@@ -176,25 +197,61 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
           {mentorMessages.some((m) => m.role === "assistant") ? (
             <div className="mentor-panel__followup">
               <h4 className="mentor-panel__followup-title">Podaj wynik pomiaru / obserwacji</h4>
-              <div className="field mentor-panel__field">
+              <div className="mentor-panel__measures">
+                <label className="field mentor-panel__measure">
+                  <span className="field__label">3V_ALW</span>
+                  <div className="mentor-panel__measure-input-wrap">
+                    <input
+                      type="number"
+                      className="input mentor-panel__measure-input"
+                      inputMode="decimal"
+                      step="any"
+                      value={alw3v}
+                      onChange={(e) => setAlw3v(e.target.value)}
+                      disabled={mentorLoading}
+                      aria-label="Napięcie 3V ALW w woltach"
+                    />
+                    <span className="mentor-panel__unit">V</span>
+                  </div>
+                </label>
+                <label className="field mentor-panel__measure">
+                  <span className="field__label">5V_ALW</span>
+                  <div className="mentor-panel__measure-input-wrap">
+                    <input
+                      type="number"
+                      className="input mentor-panel__measure-input"
+                      inputMode="decimal"
+                      step="any"
+                      value={alw5v}
+                      onChange={(e) => setAlw5v(e.target.value)}
+                      disabled={mentorLoading}
+                      aria-label="Napięcie 5V ALW w woltach"
+                    />
+                    <span className="mentor-panel__unit">V</span>
+                  </div>
+                </label>
+              </div>
+              <label className="field mentor-panel__field" htmlFor="resultInput">
+                <span className="field__label">Dodatkowy opis</span>
                 <textarea
                   id="resultInput"
                   className="input input--area mentor-panel__followup-textarea"
                   value={resultInput}
                   onChange={(e) => setResultInput(e.target.value)}
-                  placeholder="Np. 3.3 V na ALW, brak zwarcia na głównej…"
+                  placeholder="Np. brak zwarcia na głównej, zachowanie po power…"
                   rows={3}
                   spellCheck={false}
                   disabled={mentorLoading}
-                  aria-label="Podaj wynik pomiaru lub obserwacji"
                 />
-              </div>
+              </label>
               <div className="mentor-panel__row">
                 <button
                   type="button"
                   className="btn btn--primary"
                   onClick={() => void handleSendStepResult()}
-                  disabled={mentorLoading || !resultInput.trim()}
+                  disabled={
+                    mentorLoading || buildStepResultPayload(alw3v, alw5v, resultInput) === null
+                  }
                 >
                   Wyślij wynik
                 </button>

@@ -482,6 +482,37 @@ body {
   color: var(--text-muted);
 }
 
+.mentor-panel__measures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.mentor-panel__measure {
+  margin: 0;
+}
+
+.mentor-panel__measure-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.mentor-panel__measure-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mentor-panel__unit {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .mentor-panel__followup-textarea {
   width: 100%;
   max-width: 100%;
