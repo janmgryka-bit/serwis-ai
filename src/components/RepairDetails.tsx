@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { type Repair, REPAIR_STATUS_LABELS } from "../types/repair";
 import { buildAiContext } from "../lib/buildAiContext";
-
-const MOCK_AI_REPLY = "Sprawdź napięcia 3V/5V oraz sygnały EN.";
+import { askOpenAiMentor, OPENAI_MENTOR_MISSING_KEY } from "../lib/openaiMentor";
 
 type RepairDetailsProps = {
   repair: Repair;
@@ -19,11 +18,15 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   const [mentorOpen, setMentorOpen] = useState(false);
   const [mentorQuestion, setMentorQuestion] = useState("");
   const [mentorReply, setMentorReply] = useState<string | null>(null);
+  const [mentorLoading, setMentorLoading] = useState(false);
+  const [mentorError, setMentorError] = useState<string | null>(null);
 
   useEffect(() => {
     setMentorOpen(false);
     setMentorQuestion("");
     setMentorReply(null);
+    setMentorLoading(false);
+    setMentorError(null);
   }, [repair.id]);
 
   function toggleDiagnosticStep(stepId: string) {
@@ -35,9 +38,23 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     });
   }
 
-  function handleMentorSend() {
-    buildAiContext(repair);
-    setMentorReply(MOCK_AI_REPLY);
+  async function handleMentorSend() {
+    setMentorError(null);
+    setMentorReply(null);
+    setMentorLoading(true);
+    try {
+      const context = buildAiContext(repair);
+      const text = await askOpenAiMentor({ context, question: mentorQuestion });
+      setMentorReply(text);
+    } catch (e) {
+      const msg =
+        e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
+          ? "Brak klucza API. Dodaj VITE_OPENAI_API_KEY do pliku .env i uruchom ponownie dev serwer."
+          : "Nie udało się połączyć z OpenAI. Sprawdź sieć i klucz API.";
+      setMentorError(msg);
+    } finally {
+      setMentorLoading(false);
+    }
   }
 
   return (
@@ -70,14 +87,25 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
             />
           </label>
           <div className="mentor-panel__row">
-            <button type="button" className="btn btn--primary" onClick={handleMentorSend}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => void handleMentorSend()}
+              disabled={mentorLoading}
+            >
               Wyślij
             </button>
           </div>
           <label className="field mentor-panel__field">
             <span className="field__label">Odpowiedź</span>
             <div className="mentor-panel__reply mono" aria-live="polite">
-              {mentorReply ?? (
+              {mentorLoading ? (
+                <span className="mentor-panel__thinking muted">Myślę…</span>
+              ) : mentorError ? (
+                <span className="mentor-panel__error">{mentorError}</span>
+              ) : mentorReply ? (
+                mentorReply
+              ) : (
                 <span className="mentor-panel__reply-placeholder muted">
                   Tu pojawi się odpowiedź mentora…
                 </span>

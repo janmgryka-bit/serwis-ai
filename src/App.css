@@ -314,6 +314,16 @@ body {
   font-style: italic;
 }
 
+.mentor-panel__thinking {
+  font-style: italic;
+}
+
+.mentor-panel__error {
+  color: var(--danger);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  white-space: pre-wrap;
+}
+
 /* RepairDetails */
 .repair-details {
   max-width: 640px;
