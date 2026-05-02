@@ -1,4 +1,4 @@
-import type { Repair, RepairDocumentation } from "../types/repair";
+import { DIAGNOSTIC_MODE_LABELS, type Repair, type RepairDocumentation } from "../types/repair";
 
 const DEVICE_TYPE_WARNING =
   "UWAGA: Odpowiadaj tylko dla tego typu urządzenia. Nie zakładaj PC ani ATX.";
@@ -26,7 +26,11 @@ export function buildAiContext(repair: Repair): string {
       ? ["Wykonane kroki:", ...doneLabels.map((l) => `- ${l}`)].join("\n")
       : "Wykonane kroki: (brak)";
 
+  const modeLabel = DIAGNOSTIC_MODE_LABELS[repair.diagnosticMode];
+
   return [
+    `TRYB DIAGNOSTYKI: ${modeLabel}`,
+    "",
     `Typ urządzenia: ${deviceType}`,
     DEVICE_TYPE_WARNING,
     "",

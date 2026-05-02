@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   DEFAULT_REPAIR_DOCUMENTATION,
   type Repair,
+  type DiagnosticMode,
   type RepairDiagnosticStep,
   type RepairDocumentation,
   type RepairDocumentationStatus,
@@ -20,6 +21,18 @@ const STATUSES: RepairStatus[] = [
 
 function isRepairStatus(x: unknown): x is RepairStatus {
   return typeof x === "string" && (STATUSES as readonly string[]).includes(x);
+}
+
+const DIAGNOSTIC_MODES: DiagnosticMode[] = [
+  "no_power",
+  "no_display",
+  "restarts",
+  "charging_issue",
+  "other",
+];
+
+function isDiagnosticModeValue(x: unknown): x is DiagnosticMode {
+  return typeof x === "string" && (DIAGNOSTIC_MODES as readonly string[]).includes(x);
 }
 
 const DOC_STATUSES: RepairDocumentationStatus[] = ["missing", "uploaded", "found"];
@@ -92,6 +105,9 @@ function parseRepair(x: unknown): Repair | null {
     "diagnosticSteps" in o ? parseDiagnosticSteps(o.diagnosticSteps) : [];
   const documentation =
     "documentation" in o ? parseDocumentation(o.documentation) : { ...DEFAULT_REPAIR_DOCUMENTATION };
+  const diagnosticMode: DiagnosticMode = isDiagnosticModeValue(o.diagnosticMode)
+    ? o.diagnosticMode
+    : "other";
   return {
     id: o.id,
     device_type: o.device_type,
@@ -103,6 +119,7 @@ function parseRepair(x: unknown): Repair | null {
     notes,
     diagnosticSteps,
     documentation,
+    diagnosticMode,
   };
 }
 

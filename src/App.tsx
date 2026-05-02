@@ -19,6 +19,7 @@ const initialRepairs: Repair[] = [
     notes: "",
     diagnosticSteps: [],
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
+    diagnosticMode: "no_display",
   },
   {
     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
@@ -33,6 +34,7 @@ const initialRepairs: Repair[] = [
       "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     ),
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
+    diagnosticMode: "no_power",
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
@@ -45,6 +47,7 @@ const initialRepairs: Repair[] = [
     notes: "",
     diagnosticSteps: [],
     documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
+    diagnosticMode: "other",
   },
 ];
 

@@ -15,6 +15,7 @@ import {
   Title,
 } from "@mantine/core";
 import {
+  DIAGNOSTIC_MODE_LABELS,
   type Repair,
   type RepairDocumentationStatus,
   REPAIR_STATUS_LABELS,
@@ -322,6 +323,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
               {detailRow("Marka", repair.brand)}
               {detailRow("Model", repair.model || "—")}
               {detailRow("Płyta główna", repair.motherboard || "—", true)}
+              {detailRow("Tryb diagnostyki", DIAGNOSTIC_MODE_LABELS[repair.diagnosticMode])}
               <Stack gap={6}>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
                   Objaw

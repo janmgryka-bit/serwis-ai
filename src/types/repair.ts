@@ -27,6 +27,21 @@ export const DEFAULT_REPAIR_DOCUMENTATION: RepairDocumentation = {
   boardviewStatus: "missing",
 };
 
+export type DiagnosticMode =
+  | "no_power"
+  | "no_display"
+  | "restarts"
+  | "charging_issue"
+  | "other";
+
+export const DIAGNOSTIC_MODE_LABELS: Record<DiagnosticMode, string> = {
+  no_power: "Brak reakcji / martwa płyta",
+  no_display: "Startuje, brak obrazu",
+  restarts: "Restart / wyłączanie",
+  charging_issue: "Problem z ładowaniem",
+  other: "Inne",
+};
+
 export type Repair = {
   id: string;
   device_type: string;
@@ -38,9 +53,10 @@ export type Repair = {
   notes: string;
   diagnosticSteps: RepairDiagnosticStep[];
   documentation: RepairDocumentation;
+  diagnosticMode: DiagnosticMode;
 };
 
-/** Szkic z formularza „nowa naprawa” — bez pól uzupełnianych przy zapisie w `App`. */
+/** Szkic z formularza „nowa naprawa” — bez pól uzupełnianych przy zapisie w `App`. Zawiera m.in. `diagnosticMode`. */
 export type RepairDraft = Omit<Repair, "id" | "status" | "notes" | "diagnosticSteps">;
 
 export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {

@@ -5,13 +5,14 @@ import {
   Container,
   Group,
   Paper,
+  Select,
   Stack,
   Text,
   Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
-import type { RepairDraft } from "../types/repair";
+import { type DiagnosticMode, type RepairDraft, DIAGNOSTIC_MODE_LABELS } from "../types/repair";
 import {
   buildSymptomString,
   SYMPTOM_PRESET_OPTIONS,
@@ -38,6 +39,14 @@ const emptyFields = {
   motherboard: "",
 };
 
+const DIAGNOSTIC_MODE_OPTIONS: { value: DiagnosticMode; label: string }[] = [
+  { value: "no_power", label: DIAGNOSTIC_MODE_LABELS.no_power },
+  { value: "no_display", label: DIAGNOSTIC_MODE_LABELS.no_display },
+  { value: "restarts", label: DIAGNOSTIC_MODE_LABELS.restarts },
+  { value: "charging_issue", label: DIAGNOSTIC_MODE_LABELS.charging_issue },
+  { value: "other", label: DIAGNOSTIC_MODE_LABELS.other },
+];
+
 export function RepairForm({ onSave, onCancel }: RepairFormProps) {
   const [fields, setFields] = useState(emptyFields);
   const [symptomChecked, setSymptomChecked] = useState(emptyChecked);
@@ -46,6 +55,7 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
   const [schematicFileName, setSchematicFileName] = useState("");
   const [hasBoardview, setHasBoardview] = useState(false);
   const [boardviewFileName, setBoardviewFileName] = useState("");
+  const [diagnosticMode, setDiagnosticMode] = useState<DiagnosticMode>("no_power");
 
   function togglePreset(id: SymptomPresetId) {
     setSymptomChecked((c) => ({ ...c, [id]: !c[id] }));
@@ -69,6 +79,7 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
       motherboard: fields.motherboard.trim(),
       symptom: symptom.trim(),
       documentation,
+      diagnosticMode,
     };
     if (!trimmed.device_type || !trimmed.brand || !trimmed.symptom) {
       return;
@@ -113,6 +124,14 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
               value={fields.motherboard}
               onChange={(e) => setFields((f) => ({ ...f, motherboard: e.target.value }))}
               autoComplete="off"
+            />
+
+            <Select
+              label="Tryb diagnostyki"
+              data={DIAGNOSTIC_MODE_OPTIONS}
+              value={diagnosticMode}
+              onChange={(v) => setDiagnosticMode((v ?? "no_power") as DiagnosticMode)}
+              allowDeselect={false}
             />
 
             <Stack gap="xs">
