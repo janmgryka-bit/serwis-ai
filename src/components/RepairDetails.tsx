@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { type Repair, REPAIR_STATUS_LABELS } from "../types/repair";
 import { buildAiContext } from "../lib/buildAiContext";
-import { askOpenAiMentor, OPENAI_MENTOR_MISSING_KEY } from "../lib/openaiMentor";
+import {
+  askOpenAiMentor,
+  OPENAI_MENTOR_MISSING_KEY,
+  type MentorMessage,
+} from "../lib/openaiMentor";
 
 type RepairDetailsProps = {
   repair: Repair;
@@ -17,7 +21,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   const steps = repair.diagnosticSteps;
   const [mentorOpen, setMentorOpen] = useState(false);
   const [mentorQuestion, setMentorQuestion] = useState("");
-  const [mentorReply, setMentorReply] = useState<string | null>(null);
+  const [mentorMessages, setMentorMessages] = useState<MentorMessage[]>([]);
   const [mentorLoading, setMentorLoading] = useState(false);
   const [mentorError, setMentorError] = useState<string | null>(null);
   const [resultInput, setResultInput] = useState("");
@@ -25,7 +29,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   useEffect(() => {
     setMentorOpen(false);
     setMentorQuestion("");
-    setMentorReply(null);
+    setMentorMessages([]);
     setMentorLoading(false);
     setMentorError(null);
     setResultInput("");
@@ -42,13 +46,20 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
 
   async function handleMentorSend() {
     setMentorError(null);
-    setMentorReply(null);
+    setMentorMessages([]);
     setResultInput("");
     setMentorLoading(true);
     try {
       const context = buildAiContext(repair);
-      const text = await askOpenAiMentor({ context, question: mentorQuestion });
-      setMentorReply(text);
+      const text = await askOpenAiMentor({
+        context,
+        question: mentorQuestion,
+        history: [],
+      });
+      setMentorMessages([
+        { role: "user", content: mentorQuestion },
+        { role: "assistant", content: text },
+      ]);
     } catch (e) {
       const msg =
         e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
@@ -67,9 +78,18 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     setMentorLoading(true);
     try {
       const context = buildAiContext(repair);
-      const question = `Wynik poprzedniego kroku: ${trimmed}\nCo dalej?`;
-      const text = await askOpenAiMentor({ context, question });
-      setMentorReply(text);
+      const apiQuestion = `Wynik poprzedniego kroku: ${trimmed}\nCo dalej?`;
+      const text = await askOpenAiMentor({
+        context,
+        question: apiQuestion,
+        history: mentorMessages,
+      });
+      const userLine = `Wynik poprzedniego kroku: ${trimmed}`;
+      setMentorMessages((prev) => [
+        ...prev,
+        { role: "user", content: userLine },
+        { role: "assistant", content: text },
+      ]);
       setResultInput("");
     } catch (e) {
       const msg =
@@ -122,23 +142,38 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
             </button>
           </div>
           <label className="field mentor-panel__field">
-            <span className="field__label">Odpowiedź</span>
-            <div className="mentor-panel__reply mono" aria-live="polite">
-              {mentorLoading ? (
-                <span className="mentor-panel__thinking muted">Myślę…</span>
-              ) : mentorError ? (
-                <span className="mentor-panel__error">{mentorError}</span>
-              ) : mentorReply ? (
-                mentorReply
-              ) : (
+            <span className="field__label">Rozmowa</span>
+            <div className="mentor-panel__thread" aria-live="polite">
+              {mentorMessages.length === 0 && !mentorLoading && !mentorError ? (
                 <span className="mentor-panel__reply-placeholder muted">
-                  Tu pojawi się odpowiedź mentora…
+                  Tu pojawi się rozmowa z mentorem…
                 </span>
-              )}
+              ) : null}
+              {mentorMessages.map((m, i) => (
+                <div
+                  key={`${i}-${m.role}`}
+                  className={`mentor-panel__msg mentor-panel__msg--${m.role}`}
+                >
+                  <span className="mentor-panel__msg-label">
+                    {m.role === "user" ? "Ty" : "Mentor"}
+                  </span>
+                  <div className="mentor-panel__msg-body mono">{m.content}</div>
+                </div>
+              ))}
+              {mentorLoading ? (
+                <div className="mentor-panel__msg mentor-panel__msg--loading">
+                  <span className="mentor-panel__thinking muted">Myślę…</span>
+                </div>
+              ) : null}
+              {mentorError ? (
+                <div className="mentor-panel__msg mentor-panel__msg--error">
+                  <span className="mentor-panel__error">{mentorError}</span>
+                </div>
+              ) : null}
             </div>
           </label>
 
-          {mentorReply && !mentorError ? (
+          {mentorMessages.some((m) => m.role === "assistant") ? (
             <div className="mentor-panel__followup">
               <h4 className="mentor-panel__followup-title">Podaj wynik pomiaru / obserwacji</h4>
               <div className="field mentor-panel__field">

@@ -34,15 +34,22 @@ DLACZEGO:
 PODAJ WYNIK:
 [konkretnie: jakie wartości, napięcia lub obserwacje użytkownik ma podać przed kolejnym krokiem]`;
 
+export type MentorMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 /** Rzucane, gdy w .env nie ma VITE_OPENAI_API_KEY. */
 export const OPENAI_MENTOR_MISSING_KEY = "OPENAI_MENTOR_MISSING_KEY";
 
 export async function askOpenAiMentor({
   context,
   question,
+  history = [],
 }: {
   context: string;
   question: string;
+  history?: MentorMessage[];
 }): Promise<string> {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
   if (typeof apiKey !== "string" || !apiKey.trim()) {
@@ -54,16 +61,21 @@ export async function askOpenAiMentor({
     dangerouslyAllowBrowser: true,
   });
 
-  const userContent = `${context}\n\nPytanie: ${question}`;
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: `Kontekst naprawy:\n${context}` },
+    ...history.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    { role: "user", content: question },
+  ];
 
   const response = await client.chat.completions.create({
     model: MODEL,
     temperature: TEMPERATURE,
     max_tokens: MAX_TOKENS,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userContent },
-    ],
+    messages,
   });
 
   const text = response.choices[0]?.message?.content?.trim();
