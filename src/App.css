@@ -328,6 +328,26 @@ body {
   white-space: pre-wrap;
 }
 
+.mentor-panel__followup {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.mentor-panel__followup-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.mentor-panel__followup-textarea {
+  width: 100%;
+  min-height: 72px;
+}
+
 /* RepairDetails */
 .repair-details {
   max-width: 640px;

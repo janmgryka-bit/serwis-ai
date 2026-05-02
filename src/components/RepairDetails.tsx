@@ -20,6 +20,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   const [mentorReply, setMentorReply] = useState<string | null>(null);
   const [mentorLoading, setMentorLoading] = useState(false);
   const [mentorError, setMentorError] = useState<string | null>(null);
+  const [resultInput, setResultInput] = useState("");
 
   useEffect(() => {
     setMentorOpen(false);
@@ -27,6 +28,7 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
     setMentorReply(null);
     setMentorLoading(false);
     setMentorError(null);
+    setResultInput("");
   }, [repair.id]);
 
   function toggleDiagnosticStep(stepId: string) {
@@ -41,11 +43,34 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
   async function handleMentorSend() {
     setMentorError(null);
     setMentorReply(null);
+    setResultInput("");
     setMentorLoading(true);
     try {
       const context = buildAiContext(repair);
       const text = await askOpenAiMentor({ context, question: mentorQuestion });
       setMentorReply(text);
+    } catch (e) {
+      const msg =
+        e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
+          ? "Brak klucza API. Dodaj VITE_OPENAI_API_KEY do pliku .env i uruchom ponownie dev serwer."
+          : "Nie udało się połączyć z OpenAI. Sprawdź sieć i klucz API.";
+      setMentorError(msg);
+    } finally {
+      setMentorLoading(false);
+    }
+  }
+
+  async function handleSendStepResult() {
+    const trimmed = resultInput.trim();
+    if (!trimmed) return;
+    setMentorError(null);
+    setMentorLoading(true);
+    try {
+      const context = buildAiContext(repair);
+      const question = `Wynik poprzedniego kroku: ${trimmed}\nCo dalej?`;
+      const text = await askOpenAiMentor({ context, question });
+      setMentorReply(text);
+      setResultInput("");
     } catch (e) {
       const msg =
         e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
@@ -112,6 +137,35 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
               )}
             </div>
           </label>
+
+          {mentorReply && !mentorError ? (
+            <div className="mentor-panel__followup">
+              <h4 className="mentor-panel__followup-title">Podaj wynik pomiaru / obserwacji</h4>
+              <div className="field mentor-panel__field">
+                <textarea
+                  id="resultInput"
+                  className="input input--area mentor-panel__followup-textarea"
+                  value={resultInput}
+                  onChange={(e) => setResultInput(e.target.value)}
+                  placeholder="Np. 3.3 V na ALW, brak zwarcia na głównej…"
+                  rows={3}
+                  spellCheck={false}
+                  disabled={mentorLoading}
+                  aria-label="Podaj wynik pomiaru lub obserwacji"
+                />
+              </div>
+              <div className="mentor-panel__row">
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={() => void handleSendStepResult()}
+                  disabled={mentorLoading || !resultInput.trim()}
+                >
+                  Wyślij wynik
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
