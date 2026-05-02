@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import type { Repair, RepairDiagnosticStep, RepairStatus } from "../types/repair";
+import {
+  DEFAULT_REPAIR_DOCUMENTATION,
+  type Repair,
+  type RepairDiagnosticStep,
+  type RepairDocumentation,
+  type RepairDocumentationStatus,
+  type RepairStatus,
+} from "../types/repair";
 
 const STORAGE_KEY = "serwis-ai:repairs";
 
@@ -13,6 +20,39 @@ const STATUSES: RepairStatus[] = [
 
 function isRepairStatus(x: unknown): x is RepairStatus {
   return typeof x === "string" && (STATUSES as readonly string[]).includes(x);
+}
+
+const DOC_STATUSES: RepairDocumentationStatus[] = ["missing", "uploaded", "found"];
+
+function isDocumentationStatus(x: unknown): x is RepairDocumentationStatus {
+  return typeof x === "string" && (DOC_STATUSES as readonly string[]).includes(x);
+}
+
+function parseDocumentation(raw: unknown): RepairDocumentation {
+  if (typeof raw !== "object" || raw === null) {
+    return { ...DEFAULT_REPAIR_DOCUMENTATION };
+  }
+  const d = raw as Record<string, unknown>;
+  const schematicStatus = isDocumentationStatus(d.schematicStatus)
+    ? d.schematicStatus
+    : DEFAULT_REPAIR_DOCUMENTATION.schematicStatus;
+  const boardviewStatus = isDocumentationStatus(d.boardviewStatus)
+    ? d.boardviewStatus
+    : DEFAULT_REPAIR_DOCUMENTATION.boardviewStatus;
+  const schematicFileName =
+    typeof d.schematicFileName === "string" && d.schematicFileName.trim() !== ""
+      ? d.schematicFileName.trim()
+      : undefined;
+  const boardviewFileName =
+    typeof d.boardviewFileName === "string" && d.boardviewFileName.trim() !== ""
+      ? d.boardviewFileName.trim()
+      : undefined;
+  return {
+    schematicStatus,
+    boardviewStatus,
+    ...(schematicFileName !== undefined ? { schematicFileName } : {}),
+    ...(boardviewFileName !== undefined ? { boardviewFileName } : {}),
+  };
 }
 
 function parseDiagnosticSteps(raw: unknown): RepairDiagnosticStep[] {
@@ -50,6 +90,8 @@ function parseRepair(x: unknown): Repair | null {
   const notes = typeof o.notes === "string" ? o.notes : "";
   const diagnosticSteps =
     "diagnosticSteps" in o ? parseDiagnosticSteps(o.diagnosticSteps) : [];
+  const documentation =
+    "documentation" in o ? parseDocumentation(o.documentation) : { ...DEFAULT_REPAIR_DOCUMENTATION };
   return {
     id: o.id,
     device_type: o.device_type,
@@ -60,6 +102,7 @@ function parseRepair(x: unknown): Repair | null {
     status: o.status,
     notes,
     diagnosticSteps,
+    documentation,
   };
 }
 

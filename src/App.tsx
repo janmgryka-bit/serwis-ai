@@ -5,7 +5,7 @@ import { RepairForm } from "./components/RepairForm";
 import { RepairDetails } from "./components/RepairDetails";
 import { useLocalStorageRepairs } from "./hooks/useLocalStorageRepairs";
 import { buildDiagnosticStepsForSymptom } from "./lib/powerDiagnosticChecklist";
-import type { Repair, RepairDraft } from "./types/repair";
+import { type Repair, type RepairDraft, DEFAULT_REPAIR_DOCUMENTATION } from "./types/repair";
 
 const initialRepairs: Repair[] = [
   {
@@ -18,6 +18,7 @@ const initialRepairs: Repair[] = [
     status: "diagnoza",
     notes: "",
     diagnosticSteps: [],
+    documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
   },
   {
     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
@@ -31,6 +32,7 @@ const initialRepairs: Repair[] = [
     diagnosticSteps: buildDiagnosticStepsForSymptom(
       "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     ),
+    documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
@@ -42,6 +44,7 @@ const initialRepairs: Repair[] = [
     status: "nowa",
     notes: "",
     diagnosticSteps: [],
+    documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
   },
 ];
 

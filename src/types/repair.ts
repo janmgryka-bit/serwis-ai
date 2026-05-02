@@ -12,6 +12,21 @@ export type RepairDiagnosticStep = {
   done: boolean;
 };
 
+/** Stan dokumentacji — `found` zarezerwowane na przyszłe wyszukiwanie online (bez uploadu). */
+export type RepairDocumentationStatus = "missing" | "uploaded" | "found";
+
+export type RepairDocumentation = {
+  schematicStatus: RepairDocumentationStatus;
+  boardviewStatus: RepairDocumentationStatus;
+  schematicFileName?: string;
+  boardviewFileName?: string;
+};
+
+export const DEFAULT_REPAIR_DOCUMENTATION: RepairDocumentation = {
+  schematicStatus: "missing",
+  boardviewStatus: "missing",
+};
+
 export type Repair = {
   id: string;
   device_type: string;
@@ -22,6 +37,7 @@ export type Repair = {
   status: RepairStatus;
   notes: string;
   diagnosticSteps: RepairDiagnosticStep[];
+  documentation: RepairDocumentation;
 };
 
 /** Szkic z formularza „nowa naprawa” — bez pól uzupełnianych przy zapisie w `App`. */

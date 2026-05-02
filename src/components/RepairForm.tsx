@@ -42,6 +42,10 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
   const [fields, setFields] = useState(emptyFields);
   const [symptomChecked, setSymptomChecked] = useState(emptyChecked);
   const [otherSymptom, setOtherSymptom] = useState("");
+  const [hasSchematic, setHasSchematic] = useState(false);
+  const [schematicFileName, setSchematicFileName] = useState("");
+  const [hasBoardview, setHasBoardview] = useState(false);
+  const [boardviewFileName, setBoardviewFileName] = useState("");
 
   function togglePreset(id: SymptomPresetId) {
     setSymptomChecked((c) => ({ ...c, [id]: !c[id] }));
@@ -50,12 +54,21 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const symptom = buildSymptomString(symptomChecked, otherSymptom);
+    const schName = schematicFileName.trim();
+    const bvName = boardviewFileName.trim();
+    const documentation = {
+      schematicStatus: hasSchematic ? ("uploaded" as const) : ("missing" as const),
+      boardviewStatus: hasBoardview ? ("uploaded" as const) : ("missing" as const),
+      ...(hasSchematic && schName !== "" ? { schematicFileName: schName } : {}),
+      ...(hasBoardview && bvName !== "" ? { boardviewFileName: bvName } : {}),
+    };
     const trimmed: RepairDraft = {
       device_type: fields.device_type.trim(),
       brand: fields.brand.trim(),
       model: fields.model.trim(),
       motherboard: fields.motherboard.trim(),
       symptom: symptom.trim(),
+      documentation,
     };
     if (!trimmed.device_type || !trimmed.brand || !trimmed.symptom) {
       return;
@@ -126,6 +139,46 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
               placeholder="Opcjonalny opis…"
               spellCheck={false}
             />
+
+            <Stack gap="xs">
+              <Text size="xs" fw={500} tt="uppercase" c="dimmed">
+                Dokumentacja
+              </Text>
+              <Checkbox
+                label="Mam schemat"
+                checked={hasSchematic}
+                onChange={(e) => {
+                  setHasSchematic(e.currentTarget.checked);
+                  if (!e.currentTarget.checked) setSchematicFileName("");
+                }}
+              />
+              {hasSchematic ? (
+                <TextInput
+                  label="Nazwa pliku schematu"
+                  value={schematicFileName}
+                  onChange={(e) => setSchematicFileName(e.target.value)}
+                  placeholder="Np. LA-J091P.pdf"
+                  autoComplete="off"
+                />
+              ) : null}
+              <Checkbox
+                label="Mam boardview"
+                checked={hasBoardview}
+                onChange={(e) => {
+                  setHasBoardview(e.currentTarget.checked);
+                  if (!e.currentTarget.checked) setBoardviewFileName("");
+                }}
+              />
+              {hasBoardview ? (
+                <TextInput
+                  label="Nazwa pliku boardview"
+                  value={boardviewFileName}
+                  onChange={(e) => setBoardviewFileName(e.target.value)}
+                  placeholder="Np. board.brd"
+                  autoComplete="off"
+                />
+              ) : null}
+            </Stack>
 
             <Group justify="flex-end" gap="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}>
               <Button variant="default" color="gray" type="button" onClick={onCancel}>

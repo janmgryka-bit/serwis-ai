@@ -14,7 +14,11 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { type Repair, REPAIR_STATUS_LABELS } from "../types/repair";
+import {
+  type Repair,
+  type RepairDocumentationStatus,
+  REPAIR_STATUS_LABELS,
+} from "../types/repair";
 import { buildAiContext } from "../lib/buildAiContext";
 import { repairStatusBadgeColor } from "../lib/repairStatusBadgeColor";
 import {
@@ -53,6 +57,15 @@ function isBothAlwZero(alw3v: string, alw5v: string): boolean {
 
 const CONVERTER_FOCUS =
   "\n\nBrak napięć 3V/5V ALW mimo obecnego VIN i braku zwarcia. Skup się wyłącznie na diagnostyce przetwornicy 3V/5V i jej sygnałów EN/ACOK/ACIN.";
+
+function documentationUiLabel(status: RepairDocumentationStatus, fileName?: string): string {
+  if (status === "missing") return "brak";
+  const n = fileName?.trim();
+  if (status === "found") {
+    return n ? `znaleziony: ${n}` : "znaleziony";
+  }
+  return n ? `dodany: ${n}` : "dodany";
+}
 
 export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
   const steps = repair.diagnosticSteps;
@@ -324,6 +337,25 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
                   {REPAIR_STATUS_LABELS[repair.status]}
                 </Badge>
               </Group>
+              <Stack gap="xs" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-dark-5)" }}>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
+                  Dokumentacja
+                </Text>
+                {detailRow(
+                  "Schemat",
+                  documentationUiLabel(
+                    repair.documentation.schematicStatus,
+                    repair.documentation.schematicFileName,
+                  ),
+                )}
+                {detailRow(
+                  "Boardview",
+                  documentationUiLabel(
+                    repair.documentation.boardviewStatus,
+                    repair.documentation.boardviewFileName,
+                  ),
+                )}
+              </Stack>
             </Stack>
           </Stack>
         </Paper>
