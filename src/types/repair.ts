@@ -14,9 +14,11 @@ export type Repair = {
   motherboard: string;
   symptom: string;
   status: RepairStatus;
+  notes: string;
 };
 
-export type RepairDraft = Omit<Repair, "id" | "status">;
+/** Szkic z formularza „nowa naprawa” — bez `notes` (domyślnie pusty string przy zapisie). */
+export type RepairDraft = Omit<Repair, "id" | "status" | "notes">;
 
 export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {
   nowa: "Nowa",

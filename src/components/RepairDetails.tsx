@@ -8,13 +8,14 @@ import {
 type RepairDetailsProps = {
   repair: Repair;
   onBack: () => void;
+  onUpdateRepair: (updatedRepair: Repair) => void;
 };
 
 function badgeClass(status: Repair["status"]): string {
   return `badge badge--${status.replace(/\s/g, "-")}`;
 }
 
-export function RepairDetails({ repair, onBack }: RepairDetailsProps) {
+export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
   const showChecklist = shouldShowPowerDiagnostic(repair.symptom);
   const [done, setDone] = useState<boolean[]>(() =>
     POWER_DIAGNOSTIC_STEPS.map(() => false),
@@ -79,6 +80,20 @@ export function RepairDetails({ repair, onBack }: RepairDetailsProps) {
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section className="repair-details__panel repair-details__panel--notes">
+        <h3 className="repair-details__subtitle repair-details__subtitle--section">
+          Notatki serwisowe
+        </h3>
+        <textarea
+          className="input input--area input--notes"
+          value={repair.notes}
+          onChange={(e) => onUpdateRepair({ ...repair, notes: e.target.value })}
+          placeholder="Pomiary, ustalenia, części…"
+          rows={6}
+          spellCheck={false}
+        />
       </section>
 
       {showChecklist ? (

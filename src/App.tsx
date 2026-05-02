@@ -15,6 +15,7 @@ const initialRepairs: Repair[] = [
     motherboard: "LA-J091P",
     symptom: "Brak obrazu po rozgrzaniu, artefakty na zewnętrznym monitorze.",
     status: "diagnoza",
+    notes: "",
   },
   {
     id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
@@ -24,6 +25,7 @@ const initialRepairs: Repair[] = [
     motherboard: "MSI B450 Tomahawk",
     symptom: "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
     status: "w naprawie",
+    notes: "",
   },
   {
     id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
@@ -33,6 +35,7 @@ const initialRepairs: Repair[] = [
     motherboard: "—",
     symptom: "Wolny start, dysk SMART ostrzeżenie.",
     status: "nowa",
+    notes: "",
   },
 ];
 
@@ -48,6 +51,7 @@ function App() {
       ...draft,
       id: crypto.randomUUID(),
       status: "nowa",
+      notes: "",
     };
     setRepairs((prev) => [newRepair, ...prev]);
     setView("list");
@@ -73,6 +77,10 @@ function App() {
     setView("details");
   };
 
+  function updateRepair(updatedRepair: Repair) {
+    setRepairs((prev) => prev.map((r) => (r.id === updatedRepair.id ? updatedRepair : r)));
+  }
+
   return (
     <div className="app">
       <header className="app__header">
@@ -97,7 +105,11 @@ function App() {
         ) : view === "form" ? (
           <RepairForm onSave={handleSave} onCancel={goToList} />
         ) : selectedRepair ? (
-          <RepairDetails repair={selectedRepair} onBack={goToList} />
+          <RepairDetails
+            repair={selectedRepair}
+            onBack={goToList}
+            onUpdateRepair={updateRepair}
+          />
         ) : null}
       </main>
     </div>

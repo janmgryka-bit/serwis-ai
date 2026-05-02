@@ -15,18 +15,31 @@ function isRepairStatus(x: unknown): x is RepairStatus {
   return typeof x === "string" && (STATUSES as readonly string[]).includes(x);
 }
 
-function isRepair(x: unknown): x is Repair {
-  if (typeof x !== "object" || x === null) return false;
+function parseRepair(x: unknown): Repair | null {
+  if (typeof x !== "object" || x === null) return null;
   const o = x as Record<string, unknown>;
-  return (
-    typeof o.id === "string" &&
-    typeof o.device_type === "string" &&
-    typeof o.brand === "string" &&
-    typeof o.model === "string" &&
-    typeof o.motherboard === "string" &&
-    typeof o.symptom === "string" &&
-    isRepairStatus(o.status)
-  );
+  if (
+    typeof o.id !== "string" ||
+    typeof o.device_type !== "string" ||
+    typeof o.brand !== "string" ||
+    typeof o.model !== "string" ||
+    typeof o.motherboard !== "string" ||
+    typeof o.symptom !== "string" ||
+    !isRepairStatus(o.status)
+  ) {
+    return null;
+  }
+  const notes = typeof o.notes === "string" ? o.notes : "";
+  return {
+    id: o.id,
+    device_type: o.device_type,
+    brand: o.brand,
+    model: o.model,
+    motherboard: o.motherboard,
+    symptom: o.symptom,
+    status: o.status,
+    notes,
+  };
 }
 
 /** Odczyt z localStorage: brak klucza / pusty string → fallback; `[]` → pusta lista. */
@@ -40,7 +53,7 @@ export function readRepairsFromStorage(fallback: Repair[]): Repair[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return fallback;
 
-    const repairs = parsed.filter(isRepair);
+    const repairs = parsed.map(parseRepair).filter((r): r is Repair => r !== null);
     return repairs;
   } catch {
     return fallback;

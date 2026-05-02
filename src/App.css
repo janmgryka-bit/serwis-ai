@@ -285,6 +285,15 @@ body {
   border-left: 3px solid var(--accent-dim);
 }
 
+.repair-details__panel--notes .repair-details__subtitle--section {
+  margin-bottom: 0.75rem;
+}
+
+.input--notes {
+  width: 100%;
+  min-height: 140px;
+}
+
 .repair-details__title {
   margin: 0 0 0.35rem;
   font-size: 1.1rem;
