@@ -1,14 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
-  Badge,
   Button,
-  Checkbox,
   Container,
+  Divider,
   Group,
   Paper,
-  ScrollArea,
   Select,
-  SimpleGrid,
   Stack,
   Text,
   Textarea,
@@ -17,42 +14,30 @@ import {
 } from "@mantine/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
-  DIAGNOSTIC_MODE_LABELS,
+  DIAGNOSTIC_STAGE_LABELS,
+  DIAGNOSTIC_STAGE_ORDER,
+  type DiagnosticStage,
   type Repair,
-  type RepairDiagnosisStepEntry,
-  type RepairDocumentation,
-  type RepairDocumentationStatus,
   type RepairFileRole,
   REPAIR_FILE_ROLE_LABELS,
-  REPAIR_STATUS_LABELS,
 } from "../types/repair";
 import { addRepairFile, deleteRepairFile, guessFileTypeFromPath } from "../lib/database";
 import { fileNameFromPath } from "../lib/filePathUtils";
-import {
-  copyPathToClipboard,
-  openFileLocation,
-  openRepairFileWithShell,
-} from "../lib/repairFileActions";
-import { openBoardviewInVM } from "../lib/openBoardviewVM";
+import { openFileLocation, openRepairFileWithShell } from "../lib/repairFileActions";
 import { buildAiContext } from "../lib/buildAiContext";
 import { buildMentorQuestion } from "../lib/buildMentorQuestion";
-import { repairStatusBadgeColor } from "../lib/repairStatusBadgeColor";
 import {
   askOpenAiMentor,
   OPENAI_MENTOR_MISSING_KEY,
-  type MentorMessage,
 } from "../lib/openaiMentor";
-function diagnosisStepsToMentorHistory(steps: RepairDiagnosisStepEntry[]): MentorMessage[] {
-  const out: MentorMessage[] = [];
-  for (const s of steps) {
-    out.push({ role: "user", content: s.question });
-    out.push({ role: "assistant", content: s.answer });
-  }
-  return out;
-}
 
-const FILE_ROLE_ORDER: RepairFileRole[] = ["schematic", "boardview", "photo", "bios", "other"];
-const FILE_ROLE_OPTIONS = FILE_ROLE_ORDER.map((value) => ({
+const STAGE_SELECT_DATA = DIAGNOSTIC_STAGE_ORDER.map((value) => ({
+  value,
+  label: DIAGNOSTIC_STAGE_LABELS[value],
+}));
+
+const ADD_FILE_ROLE_ORDER: RepairFileRole[] = ["schematic", "boardview", "bios", "photo", "other"];
+const ADD_FILE_ROLE_OPTIONS = ADD_FILE_ROLE_ORDER.map((value) => ({
   value,
   label: REPAIR_FILE_ROLE_LABELS[value],
 }));
@@ -64,160 +49,175 @@ type RepairDetailsProps = {
   onFilesChanged?: () => void;
 };
 
-/** Tekst do API / historii; `null` gdy wszystkie pola puste. */
-function buildStepResultPayload(alw3v: string, alw5v: string, extra: string): string | null {
-  const lines: string[] = [];
-  const t3 = alw3v.trim();
-  const t5 = alw5v.trim();
-  const tex = extra.trim();
-  if (t3 !== "") lines.push(`3V_ALW = ${t3} V`);
-  if (t5 !== "") lines.push(`5V_ALW = ${t5} V`);
-  if (tex !== "") lines.push(`Dodatkowy opis: ${tex}`);
-  if (lines.length === 0) return null;
-  return lines.join("\n");
-}
-
-function isBothAlwZero(alw3v: string, alw5v: string): boolean {
-  const t3 = alw3v.trim();
-  const t5 = alw5v.trim();
-  if (t3 === "" || t5 === "") return false;
-  const v3 = parseFloat(t3);
-  const v5 = parseFloat(t5);
-  return Number.isFinite(v3) && Number.isFinite(v5) && v3 === 0 && v5 === 0;
-}
-
-const CONVERTER_FOCUS =
-  "\n\nBrak napięć 3V/5V ALW mimo obecnego VIN i braku zwarcia. Skup się wyłącznie na diagnostyce przetwornicy 3V/5V i jej sygnałów EN/ACOK/ACIN.";
-
-function documentationUiLabel(status: RepairDocumentationStatus, fileName?: string): string {
-  if (status === "missing") return "brak";
-  const n = fileName?.trim();
-  if (status === "found") {
-    return n ? `znaleziony: ${n}` : "znaleziony";
-  }
-  return n ? `dodany: ${n}` : "dodany";
-}
-
-function documentationWithoutSchematic(doc: RepairDocumentation): RepairDocumentation {
-  const next: RepairDocumentation = {
-    schematicStatus: "missing",
-    boardviewStatus: doc.boardviewStatus,
-  };
-  if (doc.boardviewFileName?.trim()) next.boardviewFileName = doc.boardviewFileName.trim();
-  if (doc.boardviewPath?.trim()) next.boardviewPath = doc.boardviewPath.trim();
-  return next;
-}
-
-function documentationWithoutBoardview(doc: RepairDocumentation): RepairDocumentation {
-  const next: RepairDocumentation = {
-    schematicStatus: doc.schematicStatus,
-    boardviewStatus: "missing",
-  };
-  if (doc.schematicFileName?.trim()) next.schematicFileName = doc.schematicFileName.trim();
-  if (doc.schematicPath?.trim()) next.schematicPath = doc.schematicPath.trim();
-  return next;
-}
-
-function PathActionButtons(props: {
+type DiagnosticFileRow = {
+  key: string;
+  roleLabel: string;
+  displayName: string;
   path: string;
-  busy?: boolean;
-  onRemove: () => void;
-  /** Tylko dla plików naprawy z rolą `boardview` — otwarcie w VirtualBox (Windows). */
-  openBoardviewInVirtualMachine?: boolean;
-}) {
-  const { path, busy, onRemove, openBoardviewInVirtualMachine } = props;
-  const p = path.trim();
-  const hasPath = p !== "";
-  function handleOpenClick() {
-    void (async () => {
-      try {
-        if (openBoardviewInVirtualMachine) {
-          await openBoardviewInVM(p);
-        } else {
-          await openRepairFileWithShell(p);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    })();
+  /** Ustawione tylko dla wierszy z `repair_files` — wtedy dostępne „Usuń”. */
+  repairFileId?: string;
+};
+
+function collectDiagnosticFileRows(repair: Repair): DiagnosticFileRow[] {
+  const rows: DiagnosticFileRow[] = [];
+  const doc = repair.documentation;
+  const schPath = doc.schematicPath?.trim() ?? "";
+  if (schPath !== "") {
+    rows.push({
+      key: "doc-schematic",
+      roleLabel: "Schemat",
+      displayName: doc.schematicFileName?.trim() || fileNameFromPath(schPath),
+      path: schPath,
+    });
   }
+  const bvPath = doc.boardviewPath?.trim() ?? "";
+  if (bvPath !== "") {
+    rows.push({
+      key: "doc-boardview",
+      roleLabel: "Boardview",
+      displayName: doc.boardviewFileName?.trim() || fileNameFromPath(bvPath),
+      path: bvPath,
+    });
+  }
+  for (const f of repair.attachedFiles) {
+    rows.push({
+      key: `file-${f.id}`,
+      roleLabel: REPAIR_FILE_ROLE_LABELS[f.fileRole],
+      displayName: f.fileName,
+      path: f.filePath.trim(),
+      repairFileId: f.id,
+    });
+  }
+  return rows;
+}
+
+function MiniFileRow(props: {
+  row: DiagnosticFileRow;
+  onOpenError: (msg: string) => void;
+  onDeleteFile?: (fileId: string) => void;
+  fileBusy?: boolean;
+}) {
+  const { row, onOpenError, onDeleteFile, fileBusy } = props;
+  const [opening, setOpening] = useState(false);
+  const p = row.path;
+  const canDelete = Boolean(row.repairFileId && onDeleteFile);
+
+  async function openFile() {
+    setOpening(true);
+    try {
+      await openRepairFileWithShell(p);
+    } catch (e) {
+      onOpenError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOpening(false);
+    }
+  }
+
   return (
-    <Group gap="xs" wrap="wrap">
-      <Button
-        size="compact-sm"
-        variant="light"
-        disabled={!hasPath || busy}
-        onClick={handleOpenClick}
-      >
-        Otwórz
-      </Button>
-      <Button
-        size="compact-sm"
-        variant="light"
-        disabled={!hasPath || busy}
-        onClick={() => void openFileLocation(p)}
-      >
-        Pokaż w folderze
-      </Button>
-      <Button
-        size="compact-sm"
-        variant="default"
-        disabled={!hasPath || busy}
-        onClick={() => void copyPathToClipboard(p)}
-      >
-        Kopiuj ścieżkę
-      </Button>
-      <Button size="compact-sm" variant="subtle" color="red" disabled={busy} onClick={onRemove}>
-        Usuń
-      </Button>
+    <Group justify="space-between" align="center" wrap="wrap" gap="sm" py={4}>
+      <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+        <Text size="xs" c="dimmed">
+          {row.roleLabel}
+        </Text>
+        <Text size="sm" style={{ wordBreak: "break-word" }}>
+          {row.displayName}
+        </Text>
+      </Stack>
+      <Group gap="xs" wrap="wrap">
+        <Button
+          size="compact-xs"
+          variant="light"
+          loading={opening}
+          disabled={fileBusy}
+          onClick={() => void openFile()}
+        >
+          Otwórz
+        </Button>
+        <Button size="compact-xs" variant="default" disabled={fileBusy} onClick={() => void openFileLocation(p)}>
+          Folder
+        </Button>
+        {canDelete ? (
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            color="red"
+            disabled={fileBusy}
+            onClick={() => onDeleteFile!(row.repairFileId!)}
+          >
+            Usuń
+          </Button>
+        ) : null}
+      </Group>
     </Group>
   );
 }
 
-export function RepairDetails({ repair, onBack, onUpdateRepair, onFilesChanged }: RepairDetailsProps) {
-  const steps = repair.diagnosticSteps;
-  const doc = repair.documentation;
-  const schematicDisplayName =
-    doc.schematicFileName?.trim() || fileNameFromPath(doc.schematicPath ?? "");
-  const boardviewDisplayName =
-    doc.boardviewFileName?.trim() || fileNameFromPath(doc.boardviewPath ?? "");
-  const hasUploadedSchematic =
-    doc.schematicStatus === "uploaded" &&
-    (!!doc.schematicFileName?.trim() || !!doc.schematicPath?.trim());
-  const hasUploadedBoardview =
-    doc.boardviewStatus === "uploaded" &&
-    (!!doc.boardviewFileName?.trim() || !!doc.boardviewPath?.trim());
-  const schematicPathTrimmed = doc.schematicPath?.trim() ?? "";
-  const boardviewPathTrimmed = doc.boardviewPath?.trim() ?? "";
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <Text size="xs" fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "0.06em" }}>
+      {children}
+    </Text>
+  );
+}
 
-  const [newFileRole, setNewFileRole] = useState<RepairFileRole>("photo");
+export function RepairDetails({ repair, onBack, onUpdateRepair, onFilesChanged }: RepairDetailsProps) {
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [newFileRole, setNewFileRole] = useState<RepairFileRole>("schematic");
   const [fileBusy, setFileBusy] = useState(false);
-  const [mentorOpen, setMentorOpen] = useState(false);
-  const [mentorQuestion, setMentorQuestion] = useState("");
-  const [mentorLoading, setMentorLoading] = useState(false);
-  const [mentorError, setMentorError] = useState<string | null>(null);
-  const [alw3v, setAlw3v] = useState("");
-  const [alw5v, setAlw5v] = useState("");
-  const [resultInput, setResultInput] = useState("");
 
   useEffect(() => {
-    setMentorOpen(false);
-    setMentorQuestion("");
-    setMentorLoading(false);
-    setMentorError(null);
-    setAlw3v("");
-    setAlw5v("");
-    setResultInput("");
+    setAiQuestion("");
+    setAiError(null);
+    setFileError(null);
+    setNewFileRole("schematic");
   }, [repair.id]);
 
-  function toggleDiagnosticStep(stepId: string) {
+  function setWorkbench(patch: Partial<Repair["workbench"]>) {
     onUpdateRepair({
       ...repair,
-      diagnosticSteps: repair.diagnosticSteps.map((s) =>
-        s.id === stepId ? { ...s, done: !s.done } : s,
-      ),
+      workbench: { ...repair.workbench, ...patch },
     });
   }
+
+  async function handleProposeStep() {
+    const trimmed = aiQuestion.trim();
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const context = buildAiContext(repair);
+      const userPart = trimmed !== "" ? buildMentorQuestion(trimmed) : "(brak dodatkowych uwag — zaproponuj następny krok wg kontekstu naprawy.)";
+      const question = [
+        "Odpowiedz wyłącznie jednym zwięzłym blokiem tekstu: jeden konkretny następny krok diagnostyczny na tej płycie.",
+        "Bez nagłówków, bez historii czatu, bez numerowania wielu kroków — tylko ten jeden krok.",
+        "",
+        userPart,
+      ].join("\n");
+      const text = await askOpenAiMentor({
+        context,
+        question,
+        history: [],
+      });
+      setWorkbench({ nextStep: text.trim() });
+    } catch (e) {
+      const msg =
+        e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
+          ? "Brak klucza API (VITE_OPENAI_API_KEY)."
+          : "Błąd połączenia z OpenAI.";
+      setAiError(msg);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  const modelBoard = [repair.model, repair.motherboard]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(" · ");
+
+  const fileRows = collectDiagnosticFileRows(repair);
 
   async function handleAddRepairFile() {
     setFileBusy(true);
@@ -249,450 +249,179 @@ export function RepairDetails({ repair, onBack, onUpdateRepair, onFilesChanged }
     }
   }
 
-  async function handleMentorSend() {
-    setMentorError(null);
-    setAlw3v("");
-    setAlw5v("");
-    setResultInput("");
-    setMentorLoading(true);
-    try {
-      const context = buildAiContext(repair);
-      const q = buildMentorQuestion(mentorQuestion);
-      const text = await askOpenAiMentor({
-        context,
-        question: q,
-        history: diagnosisStepsToMentorHistory(repair.diagnosisSteps),
-      });
-      const nextStep = repair.diagnosisSteps.length + 1;
-      onUpdateRepair({
-        ...repair,
-        diagnosisSteps: [
-          ...repair.diagnosisSteps,
-          { step: nextStep, question: q, answer: text },
-        ],
-      });
-    } catch (e) {
-      const msg =
-        e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
-          ? "Brak klucza API. Dodaj VITE_OPENAI_API_KEY do pliku .env i uruchom ponownie dev serwer."
-          : "Nie udało się połączyć z OpenAI. Sprawdź sieć i klucz API.";
-      setMentorError(msg);
-    } finally {
-      setMentorLoading(false);
-    }
-  }
-
-  async function handleSendStepResult() {
-    const payload = buildStepResultPayload(alw3v, alw5v, resultInput);
-    if (payload == null) return;
-    setMentorError(null);
-    setMentorLoading(true);
-    try {
-      const context = buildAiContext(repair);
-      const bothZero = isBothAlwZero(alw3v, alw5v);
-      const apiQuestion = bothZero
-        ? `${context}\n\nWynik poprzedniego kroku: ${payload}${CONVERTER_FOCUS}`
-        : `Wynik poprzedniego kroku: ${payload}\nCo dalej?`;
-      const text = await askOpenAiMentor({
-        context,
-        question: apiQuestion,
-        history: diagnosisStepsToMentorHistory(repair.diagnosisSteps),
-      });
-      const nextStep = repair.diagnosisSteps.length + 1;
-      onUpdateRepair({
-        ...repair,
-        diagnosisSteps: [
-          ...repair.diagnosisSteps,
-          { step: nextStep, question: apiQuestion, answer: text },
-        ],
-      });
-      setAlw3v("");
-      setAlw5v("");
-      setResultInput("");
-    } catch (e) {
-      const msg =
-        e instanceof Error && e.message === OPENAI_MENTOR_MISSING_KEY
-          ? "Brak klucza API. Dodaj VITE_OPENAI_API_KEY do pliku .env i uruchom ponownie dev serwer."
-          : "Nie udało się połączyć z OpenAI. Sprawdź sieć i klucz API.";
-      setMentorError(msg);
-    } finally {
-      setMentorLoading(false);
-    }
-  }
-
-  function detailRow(label: string, value: ReactNode, valueMuted?: boolean) {
-    return (
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
-        <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }} miw={120}>
-          {label}
-        </Text>
-        <Text size="sm" style={{ flex: 1, textAlign: "right" }} c={valueMuted ? "dimmed" : undefined}>
-          {value}
-        </Text>
-      </Group>
-    );
-  }
-
   return (
     <Container size="sm" px={{ base: "sm", sm: "md" }} py="md">
-      <Stack gap="lg">
-        <Group justify="space-between" align="center" wrap="wrap">
-          <Button variant="subtle" color="gray" onClick={onBack}>
-            ← Lista napraw
-          </Button>
-          <Button
-            variant={mentorOpen ? "light" : "default"}
-            color="teal"
-            onClick={() => setMentorOpen((o) => !o)}
-          >
-            Zapytaj AI
-          </Button>
-        </Group>
+      <Stack gap="md">
+        <Button variant="subtle" color="gray" size="compact-sm" onClick={onBack} w="fit-content" px={0}>
+          ← Lista
+        </Button>
 
-        {mentorOpen ? (
-          <Paper
-            withBorder
-            shadow="sm"
-            p="md"
-            radius="md"
-            style={{
-              borderLeftWidth: 4,
-              borderLeftColor: "var(--mantine-color-blue-6)",
-            }}
-            aria-label="Mentor AI"
-          >
-            <Stack gap="md">
-              <Title order={4} size="sm" tt="uppercase" c="blue.3" fw={600}>
-                Mentor AI
-              </Title>
-
-              <Textarea
-                label="Twoje pytanie"
-                value={mentorQuestion}
-                onChange={(e) => setMentorQuestion(e.target.value)}
-                placeholder="Np. co sprawdzić jako pierwsze na płycie?"
-                minRows={3}
-                spellCheck={false}
-              />
-              <Button onClick={() => void handleMentorSend()} loading={mentorLoading}>
-                Wyślij
-              </Button>
-
-              <Text size="sm" fw={500}>
-                Historia kroków
-              </Text>
-              <ScrollArea h="min(52vh, 28rem)" type="auto" offsetScrollbars="present">
-                <Stack gap="md" pr="xs" aria-live="polite">
-                  {repair.diagnosisSteps.length === 0 && !mentorLoading && !mentorError ? (
-                    <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
-                      Wyślij pierwsze pytanie — pojawi się krok 1.
-                    </Text>
-                  ) : null}
-                  {repair.diagnosisSteps.map((s, i) => {
-                    const wynik = repair.diagnosisSteps[i + 1]?.question;
-                    return (
-                      <Paper key={s.step} p="sm" radius="sm" withBorder bg="dark.6">
-                        <Text size="xs" c="teal.4" tt="uppercase" fw={600} mb={8}>
-                          KROK {s.step}
-                        </Text>
-                        <Text size="xs" c="dimmed" tt="uppercase" mb={4}>
-                          AI
-                        </Text>
-                        <Text component="pre" size="sm" ff="monospace" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                          {s.answer}
-                        </Text>
-                        <Text size="xs" c="dimmed" tt="uppercase" mb={4} mt="sm">
-                          WYNIK
-                        </Text>
-                        <Text component="pre" size="sm" ff="monospace" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                          {wynik ?? "—"}
-                        </Text>
-                      </Paper>
-                    );
-                  })}
-                  {mentorLoading ? (
-                    <Text size="sm" c="dimmed" style={{ fontStyle: "italic" }}>
-                      Myślę…
-                    </Text>
-                  ) : null}
-                  {mentorError ? (
-                    <Text size="sm" c="red.4">
-                      {mentorError}
-                    </Text>
-                  ) : null}
-                </Stack>
-              </ScrollArea>
-
-              {repair.diagnosisSteps.length > 0 ? (
-                <Stack gap="md" pt="sm" style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}>
-                  <Title order={5} size="sm" c="dimmed" tt="uppercase">
-                    Podaj wynik pomiaru / obserwacji
-                  </Title>
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                    <TextInput
-                      label="3V_ALW"
-                      type="number"
-                      inputMode="decimal"
-                      rightSection={<Text size="xs">V</Text>}
-                      value={alw3v}
-                      onChange={(e) => setAlw3v(e.target.value)}
-                      disabled={mentorLoading}
-                      aria-label="Napięcie 3V ALW w woltach"
-                    />
-                    <TextInput
-                      label="5V_ALW"
-                      type="number"
-                      inputMode="decimal"
-                      rightSection={<Text size="xs">V</Text>}
-                      value={alw5v}
-                      onChange={(e) => setAlw5v(e.target.value)}
-                      disabled={mentorLoading}
-                      aria-label="Napięcie 5V ALW w woltach"
-                    />
-                  </SimpleGrid>
-                  <Textarea
-                    id="resultInput"
-                    label="Dodatkowy opis"
-                    value={resultInput}
-                    onChange={(e) => setResultInput(e.target.value)}
-                    placeholder="Np. brak zwarcia na głównej, zachowanie po power…"
-                    minRows={3}
-                    spellCheck={false}
-                    disabled={mentorLoading}
-                  />
-                  <Button
-                    onClick={() => void handleSendStepResult()}
-                    disabled={mentorLoading || buildStepResultPayload(alw3v, alw5v, resultInput) === null}
-                    loading={mentorLoading}
-                  >
-                    Wyślij wynik
-                  </Button>
-                </Stack>
-              ) : null}
-            </Stack>
-          </Paper>
-        ) : null}
-
-        <Paper withBorder shadow="sm" p="lg" radius="md">
-          <Stack gap="md">
-            <Title order={3}>Szczegóły naprawy</Title>
-            <Text size="xs" c="dimmed" ff="monospace" style={{ wordBreak: "break-all" }} title={repair.id}>
-              ID: {repair.id}
-            </Text>
-            <Stack gap="xs">
-              <Stack gap="xs" pb="xs" style={{ borderBottom: "1px solid var(--mantine-color-dark-5)" }}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
-                  Klient
-                </Text>
-                {detailRow("Numer zlecenia", repair.orderNumber)}
-                {detailRow("Imię klienta", repair.customerName || "—", true)}
-                {detailRow("Telefon", repair.customerPhone || "—", true)}
-              </Stack>
-              {detailRow("Typ urządzenia", repair.device_type)}
-              {detailRow("Marka", repair.brand)}
-              {detailRow("Model", repair.model || "—")}
-              {detailRow("Płyta główna", repair.motherboard || "—", true)}
-              {detailRow("Tryb diagnostyki", DIAGNOSTIC_MODE_LABELS[repair.diagnosticMode])}
-              <Stack gap={6}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
-                  Objaw
-                </Text>
-                <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                  {repair.symptom}
-                </Text>
-              </Stack>
-              <Group justify="space-between" align="center" wrap="nowrap" gap="md">
-                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }} miw={120}>
-                  Status
-                </Text>
-                <Badge variant="light" color={repairStatusBadgeColor(repair.status)}>
-                  {REPAIR_STATUS_LABELS[repair.status]}
-                </Badge>
-              </Group>
-              <Stack gap="md" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-dark-5)" }}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
-                  Dokumentacja
-                </Text>
-                <Stack gap="xs">
-                  <Text size="sm" fw={500}>
-                    Schemat
-                  </Text>
-                  {hasUploadedSchematic ? (
-                    <Stack gap="xs">
-                      <Text size="sm" style={{ wordBreak: "break-all" }}>
-                        {schematicDisplayName}
-                      </Text>
-                      <PathActionButtons
-                        path={schematicPathTrimmed}
-                        busy={fileBusy}
-                        onRemove={() =>
-                          onUpdateRepair({
-                            ...repair,
-                            documentation: documentationWithoutSchematic(repair.documentation),
-                          })
-                        }
-                      />
-                    </Stack>
-                  ) : doc.schematicStatus === "found" ? (
-                    <Text size="sm" c="dimmed">
-                      {documentationUiLabel("found", doc.schematicFileName)}
-                    </Text>
-                  ) : (
-                    <Text size="sm" c="dimmed">
-                      brak
-                    </Text>
-                  )}
-                </Stack>
-                <Stack gap="xs">
-                  <Text size="sm" fw={500}>
-                    Boardview
-                  </Text>
-                  {hasUploadedBoardview ? (
-                    <Stack gap="xs">
-                      <Text size="sm" style={{ wordBreak: "break-all" }}>
-                        {boardviewDisplayName}
-                      </Text>
-                      <PathActionButtons
-                        path={boardviewPathTrimmed}
-                        busy={fileBusy}
-                        onRemove={() =>
-                          onUpdateRepair({
-                            ...repair,
-                            documentation: documentationWithoutBoardview(repair.documentation),
-                          })
-                        }
-                      />
-                    </Stack>
-                  ) : doc.boardviewStatus === "found" ? (
-                    <Text size="sm" c="dimmed">
-                      {documentationUiLabel("found", doc.boardviewFileName)}
-                    </Text>
-                  ) : (
-                    <Text size="sm" c="dimmed">
-                      brak
-                    </Text>
-                  )}
-                </Stack>
-              </Stack>
-              <Stack gap="sm" pt="md" style={{ borderTop: "1px solid var(--mantine-color-dark-5)" }}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
-                  Pliki naprawy
-                </Text>
-                {repair.attachedFiles.length === 0 ? (
-                  <Text size="sm" c="dimmed">
-                    Brak załączników.
-                  </Text>
-                ) : (
-                  <Stack gap="xs">
-                    {repair.attachedFiles.map((f) => (
-                      <Stack key={f.id} gap="xs">
-                        <Text size="sm" style={{ wordBreak: "break-all" }} ff="monospace">
-                          <Text span c="dimmed" size="xs">
-                            {REPAIR_FILE_ROLE_LABELS[f.fileRole]}
-                          </Text>{" "}
-                          {f.fileName}
-                        </Text>
-                        <PathActionButtons
-                          path={f.filePath}
-                          busy={fileBusy}
-                          onRemove={() => void handleDeleteRepairFile(f.id)}
-                          openBoardviewInVirtualMachine={f.fileRole === "boardview"}
-                        />
-                      </Stack>
-                    ))}
-                  </Stack>
-                )}
-                <Group align="flex-end" wrap="wrap" gap="sm">
-                  <Select
-                    label="Rola pliku"
-                    data={FILE_ROLE_OPTIONS}
-                    value={newFileRole}
-                    onChange={(v) => setNewFileRole((v ?? "photo") as RepairFileRole)}
-                    w={{ base: "100%", sm: 200 }}
-                  />
-                  <Button loading={fileBusy} onClick={() => void handleAddRepairFile()}>
-                    Dodaj plik
-                  </Button>
-                </Group>
-              </Stack>
-            </Stack>
-          </Stack>
-        </Paper>
-
-        <Paper withBorder shadow="sm" p="lg" radius="md">
-          <Title order={4} size="sm" tt="uppercase" c="teal.4" mb="md">
-            Notatki serwisowe
-          </Title>
-          <Textarea
-            value={repair.notes}
-            onChange={(e) => onUpdateRepair({ ...repair, notes: e.target.value })}
-            placeholder="Pomiary, ustalenia, części…"
-            minRows={6}
-            spellCheck={false}
-          />
-        </Paper>
-
-        <Paper withBorder shadow="sm" p="lg" radius="md">
-          <Title order={4} size="sm" tt="uppercase" c="teal.4" mb="md">
-            Wynik naprawy
-          </Title>
-          <Stack gap="md">
-            <Textarea
-              label="Diagnoza"
-              value={repair.finalDiagnosis}
-              onChange={(e) => onUpdateRepair({ ...repair, finalDiagnosis: e.target.value })}
-              placeholder="Końcowa diagnoza…"
-              minRows={4}
-              spellCheck={false}
-            />
-            <Textarea
-              label="Rozwiązanie"
-              value={repair.solution}
-              onChange={(e) => onUpdateRepair({ ...repair, solution: e.target.value })}
-              placeholder="Co zrobiono, wymienione elementy…"
-              minRows={4}
-              spellCheck={false}
-            />
-          </Stack>
-        </Paper>
-
-        <Paper
-          withBorder
-          shadow="sm"
-          p="lg"
-          radius="md"
-          style={{ borderLeftWidth: 4, borderLeftColor: "var(--mantine-color-teal-6)" }}
-        >
-          <Title order={4} size="sm" tt="uppercase" c="teal.4" mb="sm">
-            Checklista diagnostyczna
-          </Title>
-          {steps.length === 0 ? (
+        {/* 1 — Header */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap={4}>
+            <Title order={3}>{repair.orderNumber}</Title>
             <Text size="sm" c="dimmed">
-              Brak automatycznej checklisty dla tego objawu.
+              {modelBoard || "—"}
             </Text>
-          ) : (
-            <Stack gap="md">
-              <Text size="sm" c="dimmed">
-                Objaw wskazuje na problem ze startem / zasilaniem — odhacz wykonane kroki.
+          </Stack>
+        </Paper>
+
+        {/* 2 — Stan diagnozy */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>Stan diagnozy</SectionTitle>
+            <Select
+              label="Etap diagnostyki"
+              data={STAGE_SELECT_DATA}
+              value={repair.diagnosticStage}
+              onChange={(v) =>
+                onUpdateRepair({
+                  ...repair,
+                  diagnosticStage: (v ?? "start") as DiagnosticStage,
+                })
+              }
+              allowDeselect={false}
+            />
+          </Stack>
+        </Paper>
+
+        {/* 3 — Co wiem */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>Co wiem</SectionTitle>
+            <TextInput
+              label="VIN"
+              value={repair.workbench.vinObservation}
+              onChange={(e) => setWorkbench({ vinObservation: e.target.value })}
+              spellCheck={false}
+            />
+            <TextInput
+              label="Pobór"
+              value={repair.workbench.currentDraw}
+              onChange={(e) => setWorkbench({ currentDraw: e.target.value })}
+              spellCheck={false}
+            />
+            <TextInput
+              label="Reakcja"
+              value={repair.workbench.powerReaction}
+              onChange={(e) => setWorkbench({ powerReaction: e.target.value })}
+              spellCheck={false}
+            />
+          </Stack>
+        </Paper>
+
+        {/* 4 — Wniosek */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>Wniosek</SectionTitle>
+            <Textarea
+              placeholder="Krótkie podsumowanie…"
+              value={repair.workbench.workingConclusion}
+              onChange={(e) => setWorkbench({ workingConclusion: e.target.value })}
+              autosize
+              minRows={3}
+              maxRows={8}
+              spellCheck={false}
+            />
+          </Stack>
+        </Paper>
+
+        {/* 5 — Następny krok */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>Następny krok</SectionTitle>
+            <Textarea
+              placeholder="Co robisz dalej na płycie…"
+              value={repair.workbench.nextStep}
+              onChange={(e) => setWorkbench({ nextStep: e.target.value })}
+              autosize
+              minRows={4}
+              maxRows={12}
+              spellCheck={false}
+            />
+          </Stack>
+        </Paper>
+
+        {/* 6 — AI */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>AI</SectionTitle>
+            <TextInput
+              placeholder="Opcjonalne pytanie lub uwagi do AI…"
+              value={aiQuestion}
+              onChange={(e) => setAiQuestion(e.target.value)}
+              spellCheck={false}
+              disabled={aiLoading}
+            />
+            <Button onClick={() => void handleProposeStep()} loading={aiLoading}>
+              Zaproponuj krok
+            </Button>
+            {aiError ? (
+              <Text size="sm" c="red.4">
+                {aiError}
               </Text>
-              <Stack gap="xs">
-                {steps.map((step) => (
-                  <Checkbox
-                    key={step.id}
-                    label={step.label}
-                    checked={step.done}
-                    onChange={() => toggleDiagnosticStep(step.id)}
-                    styles={{
-                      label: {
-                        textDecoration: step.done ? "line-through" : undefined,
-                        color: step.done ? "var(--mantine-color-dimmed)" : undefined,
-                      },
-                    }}
-                  />
+            ) : null}
+          </Stack>
+        </Paper>
+
+        {/* 7 — Pliki */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>Pliki</SectionTitle>
+            {fileError ? (
+              <Text size="xs" c="red.4">
+                {fileError}
+              </Text>
+            ) : null}
+            {fileRows.length === 0 ? (
+              <Text size="sm" c="dimmed">
+                Brak plików.
+              </Text>
+            ) : (
+              <Stack gap={0}>
+                {fileRows.map((row, i) => (
+                  <Stack key={row.key} gap={0}>
+                    {i > 0 ? <Divider my="xs" color="dark.5" /> : null}
+                    <MiniFileRow
+                      row={row}
+                      onOpenError={setFileError}
+                      onDeleteFile={(id) => void handleDeleteRepairFile(id)}
+                      fileBusy={fileBusy}
+                    />
+                  </Stack>
                 ))}
               </Stack>
-            </Stack>
-          )}
+            )}
+            <Group align="flex-end" wrap="wrap" gap="sm" mt="xs">
+              <Select
+                label="Rola pliku"
+                data={ADD_FILE_ROLE_OPTIONS}
+                value={newFileRole}
+                onChange={(v) => setNewFileRole((v ?? "schematic") as RepairFileRole)}
+                w={{ base: "100%", xs: 220 }}
+                disabled={fileBusy}
+              />
+              <Button loading={fileBusy} onClick={() => void handleAddRepairFile()}>
+                Dodaj plik
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
+
+        {/* 8 — Notatki */}
+        <Paper withBorder p="md" radius="md">
+          <Stack gap="sm">
+            <SectionTitle>Notatki</SectionTitle>
+            <Textarea
+              value={repair.notes}
+              onChange={(e) => onUpdateRepair({ ...repair, notes: e.target.value })}
+              placeholder="Notatki serwisowe…"
+              autosize
+              minRows={12}
+              maxRows={24}
+              spellCheck={false}
+            />
+          </Stack>
         </Paper>
       </Stack>
     </Container>

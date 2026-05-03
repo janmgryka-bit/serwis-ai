@@ -26,7 +26,7 @@
         {
           "name": "vbox-start",
           "cmd": "VBoxManage",
-          "args": ["startvm", "Win10", "--type", "headless"],
+          "args": ["startvm", "Serwis_Win10", "--type", "headless"],
           "sidecar": false
         },
         {
@@ -34,14 +34,16 @@
           "cmd": "VBoxManage",
           "args": [
             "guestcontrol",
-            "Win10",
-            "run",
-            "--exe",
-            { "validator": "^.+$" },
+            "Serwis_Win10",
+            "start",
             "--username",
             "vboxuser",
+            "--domain",
+            ".",
             "--password",
             "vboxuser",
+            "--exe",
+            { "validator": "^.+$" },
             "--",
             { "validator": "^.+$" },
             { "validator": "^.+$" }

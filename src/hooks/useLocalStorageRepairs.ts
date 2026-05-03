@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   DEFAULT_REPAIR_DOCUMENTATION,
+  DEFAULT_DIAGNOSTIC_STAGE,
+  DIAGNOSTIC_STAGE_ORDER,
+  parseRepairWorkbench,
   type Repair,
   type DiagnosticMode,
+  type DiagnosticStage,
   type RepairDiagnosisStepEntry,
   type RepairDiagnosticStep,
   type RepairDocumentation,
@@ -32,8 +36,21 @@ const DIAGNOSTIC_MODES: DiagnosticMode[] = [
   "other",
 ];
 
+const LEGACY_DIAGNOSTIC_STAGE_MAP: Record<string, DiagnosticStage> = {
+  post: "board_boot",
+  analysis: "stage_other",
+};
+
 function isDiagnosticModeValue(x: unknown): x is DiagnosticMode {
   return typeof x === "string" && (DIAGNOSTIC_MODES as readonly string[]).includes(x);
+}
+
+function parseDiagnosticStageFromStorage(x: unknown): DiagnosticStage {
+  if (typeof x !== "string") return DEFAULT_DIAGNOSTIC_STAGE;
+  const s = x.trim();
+  if ((DIAGNOSTIC_STAGE_ORDER as readonly string[]).includes(s)) return s as DiagnosticStage;
+  if (s in LEGACY_DIAGNOSTIC_STAGE_MAP) return LEGACY_DIAGNOSTIC_STAGE_MAP[s];
+  return DEFAULT_DIAGNOSTIC_STAGE;
 }
 
 const DOC_STATUSES: RepairDocumentationStatus[] = ["missing", "uploaded", "found"];
@@ -89,7 +106,15 @@ function parseDiagnosisSteps(raw: unknown): RepairDiagnosisStepEntry[] {
     if (!Number.isFinite(stepNum) || typeof s.question !== "string" || typeof s.answer !== "string") {
       continue;
     }
-    out.push({ step: stepNum, question: s.question, answer: s.answer });
+    const entry: RepairDiagnosisStepEntry = {
+      step: stepNum,
+      question: s.question,
+      answer: s.answer,
+    };
+    if (typeof s.recordedAt === "string" && s.recordedAt.trim() !== "") {
+      entry.recordedAt = s.recordedAt.trim();
+    }
+    out.push(entry);
   }
   return out;
 }
@@ -138,6 +163,21 @@ function parseRepair(x: unknown): Repair | null {
     : "other";
   const diagnosisSteps =
     "diagnosisSteps" in o ? parseDiagnosisSteps(o.diagnosisSteps) : [];
+  const diagnosticStage = parseDiagnosticStageFromStorage(o.diagnosticStage);
+  const legacyVin =
+    typeof o.diagnosticObservationVin === "string" ? o.diagnosticObservationVin : "";
+  const legacyDraw =
+    typeof o.diagnosticObservationDraw === "string" ? o.diagnosticObservationDraw : "";
+  const legacyReaction =
+    typeof o.diagnosticObservationReaction === "string" ? o.diagnosticObservationReaction : "";
+  const legacyConclusion =
+    typeof o.diagnosticConclusion === "string" ? o.diagnosticConclusion : "";
+  const workbench = parseRepairWorkbench("workbench" in o ? o.workbench : {}, {
+    vin: legacyVin,
+    draw: legacyDraw,
+    reaction: legacyReaction,
+    conclusion: legacyConclusion,
+  });
   const customerName = typeof o.customerName === "string" ? o.customerName : "";
   const customerPhone = typeof o.customerPhone === "string" ? o.customerPhone : "";
   const orderNumberRaw = typeof o.orderNumber === "string" ? o.orderNumber.trim() : "";
@@ -160,6 +200,8 @@ function parseRepair(x: unknown): Repair | null {
     diagnosticSteps,
     documentation,
     diagnosticMode,
+    diagnosticStage,
+    workbench,
     diagnosisSteps,
     attachedFiles: [],
   };

@@ -13,7 +13,12 @@ import {
   Title,
 } from "@mantine/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { type DiagnosticMode, type RepairDraft, DIAGNOSTIC_MODE_LABELS } from "../types/repair";
+import {
+  type DiagnosticMode,
+  type RepairDraft,
+  DIAGNOSTIC_MODE_LABELS,
+  DEFAULT_REPAIR_WORKBENCH,
+} from "../types/repair";
 import {
   buildSymptomString,
   SYMPTOM_PRESET_OPTIONS,
@@ -108,6 +113,8 @@ export function RepairForm({ onSave, onCancel }: RepairFormProps) {
       attachedFiles: [],
       documentation,
       diagnosticMode,
+      diagnosticStage: "start",
+      workbench: { ...DEFAULT_REPAIR_WORKBENCH },
       diagnosisSteps: [],
     };
     if (!trimmed.device_type || !trimmed.brand) {
