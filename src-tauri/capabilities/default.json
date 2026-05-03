@@ -5,6 +5,54 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "shell:default",
+    "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "xdg-open-dir",
+          "cmd": "xdg-open",
+          "args": [{ "validator": "^.+$" }],
+          "sidecar": false
+        },
+        {
+          "name": "vbox-list-running",
+          "cmd": "VBoxManage",
+          "args": ["list", "runningvms"],
+          "sidecar": false
+        },
+        {
+          "name": "vbox-start",
+          "cmd": "VBoxManage",
+          "args": ["startvm", "Win10", "--type", "headless"],
+          "sidecar": false
+        },
+        {
+          "name": "vbox-run-boardview",
+          "cmd": "VBoxManage",
+          "args": [
+            "guestcontrol",
+            "Win10",
+            "run",
+            "--exe",
+            { "validator": "^.+$" },
+            "--username",
+            "vboxuser",
+            "--password",
+            "vboxuser",
+            "--",
+            { "validator": "^.+$" },
+            { "validator": "^.+$" }
+          ],
+          "sidecar": false
+        }
+      ]
+    },
+    "sql:default",
+    "sql:allow-execute",
+    "dialog:default",
+    "dialog:allow-open"
   ]
 }

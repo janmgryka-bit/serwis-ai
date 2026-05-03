@@ -61,11 +61,21 @@ function parseDocumentation(raw: unknown): RepairDocumentation {
     typeof d.boardviewFileName === "string" && d.boardviewFileName.trim() !== ""
       ? d.boardviewFileName.trim()
       : undefined;
+  const schematicPath =
+    typeof d.schematicPath === "string" && d.schematicPath.trim() !== ""
+      ? d.schematicPath.trim()
+      : undefined;
+  const boardviewPath =
+    typeof d.boardviewPath === "string" && d.boardviewPath.trim() !== ""
+      ? d.boardviewPath.trim()
+      : undefined;
   return {
     schematicStatus,
     boardviewStatus,
     ...(schematicFileName !== undefined ? { schematicFileName } : {}),
     ...(boardviewFileName !== undefined ? { boardviewFileName } : {}),
+    ...(schematicPath !== undefined ? { schematicPath } : {}),
+    ...(boardviewPath !== undefined ? { boardviewPath } : {}),
   };
 }
 
@@ -151,6 +161,7 @@ function parseRepair(x: unknown): Repair | null {
     documentation,
     diagnosticMode,
     diagnosisSteps,
+    attachedFiles: [],
   };
 }
 

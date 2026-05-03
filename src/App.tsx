@@ -1,82 +1,20 @@
 import { useEffect, useState } from "react";
-import { Box, Container, Group, Text, Title } from "@mantine/core";
+import { Alert, Box, Container, Group, Loader, Text, Title } from "@mantine/core";
 import { RepairList } from "./components/RepairList";
 import { RepairForm } from "./components/RepairForm";
 import { RepairDetails } from "./components/RepairDetails";
-import { useLocalStorageRepairs } from "./hooks/useLocalStorageRepairs";
+import { useRepairsDatabase } from "./hooks/useRepairsDatabase";
 import { buildDiagnosticStepsForSymptom } from "./lib/powerDiagnosticChecklist";
-import { type Repair, type RepairDraft, DEFAULT_REPAIR_DOCUMENTATION } from "./types/repair";
-
-const initialRepairs: Repair[] = [
-  {
-    id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    customerName: "Jan Kowalski",
-    customerPhone: "+48 600 100 200",
-    orderNumber: "SRV-1700000000001",
-    device_type: "Laptop",
-    brand: "Dell",
-    model: "Latitude 5520",
-    motherboard: "LA-J091P",
-    symptom: "Brak obrazu po rozgrzaniu, artefakty na zewnętrznym monitorze.",
-    status: "diagnoza",
-    notes: "",
-    finalDiagnosis: "",
-    solution: "",
-    diagnosticSteps: [],
-    diagnosisSteps: [],
-    documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
-    diagnosticMode: "no_display",
-  },
-  {
-    id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-    customerName: "Anna Nowak",
-    customerPhone: "",
-    orderNumber: "SRV-1700000000002",
-    device_type: "PC stacjonarny",
-    brand: "Custom",
-    model: "B450 / Ryzen 5",
-    motherboard: "MSI B450 Tomahawk",
-    symptom: "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
-    status: "w naprawie",
-    notes: "",
-    finalDiagnosis: "",
-    solution: "",
-    diagnosticSteps: buildDiagnosticStepsForSymptom(
-      "Laptop nie uruchamia się — brak reakcji po wciśnięciu power.",
-    ),
-    documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
-    diagnosticMode: "no_power",
-    diagnosisSteps: [],
-  },
-  {
-    id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
-    customerName: "",
-    customerPhone: "22 123 45 67",
-    orderNumber: "SRV-1700000000003",
-    device_type: "AIO",
-    brand: "HP",
-    model: "24-dp1000",
-    motherboard: "—",
-    symptom: "Wolny start, dysk SMART ostrzeżenie.",
-    status: "nowa",
-    notes: "",
-    finalDiagnosis: "",
-    solution: "",
-    diagnosticSteps: [],
-    diagnosisSteps: [],
-    documentation: { ...DEFAULT_REPAIR_DOCUMENTATION },
-    diagnosticMode: "other",
-  },
-];
+import { type Repair, type RepairDraft } from "./types/repair";
 
 type View = "list" | "form" | "details";
 
 function App() {
-  const [repairs, setRepairs] = useLocalStorageRepairs(initialRepairs);
+  const { repairs, ready, loadError, addRepair, updateRepairDb, refreshRepairs } = useRepairsDatabase();
   const [view, setView] = useState<View>("list");
   const [selectedRepairId, setSelectedRepairId] = useState<string | null>(null);
 
-  function handleSave(draft: RepairDraft) {
+  async function handleSave(draft: RepairDraft) {
     const newRepair: Repair = {
       ...draft,
       id: crypto.randomUUID(),
@@ -89,8 +27,9 @@ function App() {
       solution: draft.solution.trim(),
       diagnosticSteps: buildDiagnosticStepsForSymptom(draft.symptom),
       diagnosisSteps: draft.diagnosisSteps ?? [],
+      attachedFiles: draft.attachedFiles ?? [],
     };
-    setRepairs((prev) => [newRepair, ...prev]);
+    await addRepair(newRepair);
     setView("list");
   }
 
@@ -114,10 +53,6 @@ function App() {
     setView("details");
   };
 
-  function updateRepair(updatedRepair: Repair) {
-    setRepairs((prev) => prev.map((r) => (r.id === updatedRepair.id ? updatedRepair : r)));
-  }
-
   return (
     <Box style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Box
@@ -138,7 +73,7 @@ function App() {
                 Serwis AI
               </Title>
               <Text size="xs" c="dimmed" ff="monospace" mt={2}>
-                Rejestr napraw · lokalny stan
+                Rejestr napraw · SQLite
               </Text>
             </Box>
           </Group>
@@ -155,23 +90,42 @@ function App() {
           flexDirection: "column",
         }}
       >
-        <Box style={{ flex: 1, minWidth: 0, width: "100%" }}>
-          {view === "list" ? (
-            <RepairList
-              repairs={repairs}
-              onNewRepair={() => setView("form")}
-              onSelectRepair={openDetails}
-            />
-          ) : view === "form" ? (
-            <RepairForm onSave={handleSave} onCancel={goToList} />
-          ) : selectedRepair ? (
-            <RepairDetails
-              repair={selectedRepair}
-              onBack={goToList}
-              onUpdateRepair={updateRepair}
-            />
-          ) : null}
-        </Box>
+        {!ready ? (
+          <Container size="sm" py="xl">
+            <Group justify="center" gap="sm">
+              <Loader size="sm" />
+              <Text size="sm" c="dimmed">
+                Ładowanie bazy danych…
+              </Text>
+            </Group>
+          </Container>
+        ) : (
+          <Box style={{ flex: 1, minWidth: 0, width: "100%" }}>
+            {loadError ? (
+              <Container size="md" py="md">
+                <Alert color="red" title="Baza danych">
+                  {loadError}
+                </Alert>
+              </Container>
+            ) : null}
+            {view === "list" ? (
+              <RepairList
+                repairs={repairs}
+                onNewRepair={() => setView("form")}
+                onSelectRepair={openDetails}
+              />
+            ) : view === "form" ? (
+              <RepairForm onSave={(d) => void handleSave(d)} onCancel={goToList} />
+            ) : selectedRepair ? (
+              <RepairDetails
+                repair={selectedRepair}
+                onBack={goToList}
+                onUpdateRepair={(r) => void updateRepairDb(r)}
+                onFilesChanged={() => void refreshRepairs()}
+              />
+            ) : null}
+          </Box>
+        )}
       </Box>
     </Box>
   );

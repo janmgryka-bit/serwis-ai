@@ -7,6 +7,7 @@ import {
   Group,
   Paper,
   ScrollArea,
+  Select,
   SimpleGrid,
   Stack,
   Text,
@@ -14,13 +15,25 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   DIAGNOSTIC_MODE_LABELS,
   type Repair,
   type RepairDiagnosisStepEntry,
+  type RepairDocumentation,
   type RepairDocumentationStatus,
+  type RepairFileRole,
+  REPAIR_FILE_ROLE_LABELS,
   REPAIR_STATUS_LABELS,
 } from "../types/repair";
+import { addRepairFile, deleteRepairFile, guessFileTypeFromPath } from "../lib/database";
+import { fileNameFromPath } from "../lib/filePathUtils";
+import {
+  copyPathToClipboard,
+  openFileLocation,
+  openRepairFileWithShell,
+} from "../lib/repairFileActions";
+import { openBoardviewInVM } from "../lib/openBoardviewVM";
 import { buildAiContext } from "../lib/buildAiContext";
 import { buildMentorQuestion } from "../lib/buildMentorQuestion";
 import { repairStatusBadgeColor } from "../lib/repairStatusBadgeColor";
@@ -38,10 +51,17 @@ function diagnosisStepsToMentorHistory(steps: RepairDiagnosisStepEntry[]): Mento
   return out;
 }
 
+const FILE_ROLE_ORDER: RepairFileRole[] = ["schematic", "boardview", "photo", "bios", "other"];
+const FILE_ROLE_OPTIONS = FILE_ROLE_ORDER.map((value) => ({
+  value,
+  label: REPAIR_FILE_ROLE_LABELS[value],
+}));
+
 type RepairDetailsProps = {
   repair: Repair;
   onBack: () => void;
   onUpdateRepair: (updatedRepair: Repair) => void;
+  onFilesChanged?: () => void;
 };
 
 /** Tekst do API / historii; `null` gdy wszystkie pola puste. */
@@ -78,8 +98,100 @@ function documentationUiLabel(status: RepairDocumentationStatus, fileName?: stri
   return n ? `dodany: ${n}` : "dodany";
 }
 
-export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsProps) {
+function documentationWithoutSchematic(doc: RepairDocumentation): RepairDocumentation {
+  const next: RepairDocumentation = {
+    schematicStatus: "missing",
+    boardviewStatus: doc.boardviewStatus,
+  };
+  if (doc.boardviewFileName?.trim()) next.boardviewFileName = doc.boardviewFileName.trim();
+  if (doc.boardviewPath?.trim()) next.boardviewPath = doc.boardviewPath.trim();
+  return next;
+}
+
+function documentationWithoutBoardview(doc: RepairDocumentation): RepairDocumentation {
+  const next: RepairDocumentation = {
+    schematicStatus: doc.schematicStatus,
+    boardviewStatus: "missing",
+  };
+  if (doc.schematicFileName?.trim()) next.schematicFileName = doc.schematicFileName.trim();
+  if (doc.schematicPath?.trim()) next.schematicPath = doc.schematicPath.trim();
+  return next;
+}
+
+function PathActionButtons(props: {
+  path: string;
+  busy?: boolean;
+  onRemove: () => void;
+  /** Tylko dla plików naprawy z rolą `boardview` — otwarcie w VirtualBox (Windows). */
+  openBoardviewInVirtualMachine?: boolean;
+}) {
+  const { path, busy, onRemove, openBoardviewInVirtualMachine } = props;
+  const p = path.trim();
+  const hasPath = p !== "";
+  function handleOpenClick() {
+    void (async () => {
+      try {
+        if (openBoardviewInVirtualMachine) {
+          await openBoardviewInVM(p);
+        } else {
+          await openRepairFileWithShell(p);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }
+  return (
+    <Group gap="xs" wrap="wrap">
+      <Button
+        size="compact-sm"
+        variant="light"
+        disabled={!hasPath || busy}
+        onClick={handleOpenClick}
+      >
+        Otwórz
+      </Button>
+      <Button
+        size="compact-sm"
+        variant="light"
+        disabled={!hasPath || busy}
+        onClick={() => void openFileLocation(p)}
+      >
+        Pokaż w folderze
+      </Button>
+      <Button
+        size="compact-sm"
+        variant="default"
+        disabled={!hasPath || busy}
+        onClick={() => void copyPathToClipboard(p)}
+      >
+        Kopiuj ścieżkę
+      </Button>
+      <Button size="compact-sm" variant="subtle" color="red" disabled={busy} onClick={onRemove}>
+        Usuń
+      </Button>
+    </Group>
+  );
+}
+
+export function RepairDetails({ repair, onBack, onUpdateRepair, onFilesChanged }: RepairDetailsProps) {
   const steps = repair.diagnosticSteps;
+  const doc = repair.documentation;
+  const schematicDisplayName =
+    doc.schematicFileName?.trim() || fileNameFromPath(doc.schematicPath ?? "");
+  const boardviewDisplayName =
+    doc.boardviewFileName?.trim() || fileNameFromPath(doc.boardviewPath ?? "");
+  const hasUploadedSchematic =
+    doc.schematicStatus === "uploaded" &&
+    (!!doc.schematicFileName?.trim() || !!doc.schematicPath?.trim());
+  const hasUploadedBoardview =
+    doc.boardviewStatus === "uploaded" &&
+    (!!doc.boardviewFileName?.trim() || !!doc.boardviewPath?.trim());
+  const schematicPathTrimmed = doc.schematicPath?.trim() ?? "";
+  const boardviewPathTrimmed = doc.boardviewPath?.trim() ?? "";
+
+  const [newFileRole, setNewFileRole] = useState<RepairFileRole>("photo");
+  const [fileBusy, setFileBusy] = useState(false);
   const [mentorOpen, setMentorOpen] = useState(false);
   const [mentorQuestion, setMentorQuestion] = useState("");
   const [mentorLoading, setMentorLoading] = useState(false);
@@ -105,6 +217,36 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
         s.id === stepId ? { ...s, done: !s.done } : s,
       ),
     });
+  }
+
+  async function handleAddRepairFile() {
+    setFileBusy(true);
+    try {
+      const selected = await open({ multiple: false });
+      if (selected === null || Array.isArray(selected)) return;
+      const pathStr = selected;
+      const fileName = pathStr.split(/[/\\]/).pop() ?? "plik";
+      await addRepairFile({
+        repairId: repair.id,
+        fileName,
+        filePath: pathStr,
+        fileType: guessFileTypeFromPath(pathStr),
+        fileRole: newFileRole,
+      });
+      onFilesChanged?.();
+    } finally {
+      setFileBusy(false);
+    }
+  }
+
+  async function handleDeleteRepairFile(fileId: string) {
+    setFileBusy(true);
+    try {
+      await deleteRepairFile(fileId);
+      onFilesChanged?.();
+    } finally {
+      setFileBusy(false);
+    }
   }
 
   async function handleMentorSend() {
@@ -367,24 +509,111 @@ export function RepairDetails({ repair, onBack, onUpdateRepair }: RepairDetailsP
                   {REPAIR_STATUS_LABELS[repair.status]}
                 </Badge>
               </Group>
-              <Stack gap="xs" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-dark-5)" }}>
+              <Stack gap="md" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-dark-5)" }}>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
                   Dokumentacja
                 </Text>
-                {detailRow(
-                  "Schemat",
-                  documentationUiLabel(
-                    repair.documentation.schematicStatus,
-                    repair.documentation.schematicFileName,
-                  ),
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>
+                    Schemat
+                  </Text>
+                  {hasUploadedSchematic ? (
+                    <Stack gap="xs">
+                      <Text size="sm" style={{ wordBreak: "break-all" }}>
+                        {schematicDisplayName}
+                      </Text>
+                      <PathActionButtons
+                        path={schematicPathTrimmed}
+                        busy={fileBusy}
+                        onRemove={() =>
+                          onUpdateRepair({
+                            ...repair,
+                            documentation: documentationWithoutSchematic(repair.documentation),
+                          })
+                        }
+                      />
+                    </Stack>
+                  ) : doc.schematicStatus === "found" ? (
+                    <Text size="sm" c="dimmed">
+                      {documentationUiLabel("found", doc.schematicFileName)}
+                    </Text>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      brak
+                    </Text>
+                  )}
+                </Stack>
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>
+                    Boardview
+                  </Text>
+                  {hasUploadedBoardview ? (
+                    <Stack gap="xs">
+                      <Text size="sm" style={{ wordBreak: "break-all" }}>
+                        {boardviewDisplayName}
+                      </Text>
+                      <PathActionButtons
+                        path={boardviewPathTrimmed}
+                        busy={fileBusy}
+                        onRemove={() =>
+                          onUpdateRepair({
+                            ...repair,
+                            documentation: documentationWithoutBoardview(repair.documentation),
+                          })
+                        }
+                      />
+                    </Stack>
+                  ) : doc.boardviewStatus === "found" ? (
+                    <Text size="sm" c="dimmed">
+                      {documentationUiLabel("found", doc.boardviewFileName)}
+                    </Text>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      brak
+                    </Text>
+                  )}
+                </Stack>
+              </Stack>
+              <Stack gap="sm" pt="md" style={{ borderTop: "1px solid var(--mantine-color-dark-5)" }}>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500} style={{ letterSpacing: "0.06em" }}>
+                  Pliki naprawy
+                </Text>
+                {repair.attachedFiles.length === 0 ? (
+                  <Text size="sm" c="dimmed">
+                    Brak załączników.
+                  </Text>
+                ) : (
+                  <Stack gap="xs">
+                    {repair.attachedFiles.map((f) => (
+                      <Stack key={f.id} gap="xs">
+                        <Text size="sm" style={{ wordBreak: "break-all" }} ff="monospace">
+                          <Text span c="dimmed" size="xs">
+                            {REPAIR_FILE_ROLE_LABELS[f.fileRole]}
+                          </Text>{" "}
+                          {f.fileName}
+                        </Text>
+                        <PathActionButtons
+                          path={f.filePath}
+                          busy={fileBusy}
+                          onRemove={() => void handleDeleteRepairFile(f.id)}
+                          openBoardviewInVirtualMachine={f.fileRole === "boardview"}
+                        />
+                      </Stack>
+                    ))}
+                  </Stack>
                 )}
-                {detailRow(
-                  "Boardview",
-                  documentationUiLabel(
-                    repair.documentation.boardviewStatus,
-                    repair.documentation.boardviewFileName,
-                  ),
-                )}
+                <Group align="flex-end" wrap="wrap" gap="sm">
+                  <Select
+                    label="Rola pliku"
+                    data={FILE_ROLE_OPTIONS}
+                    value={newFileRole}
+                    onChange={(v) => setNewFileRole((v ?? "photo") as RepairFileRole)}
+                    w={{ base: "100%", sm: 200 }}
+                  />
+                  <Button loading={fileBusy} onClick={() => void handleAddRepairFile()}>
+                    Dodaj plik
+                  </Button>
+                </Group>
               </Stack>
             </Stack>
           </Stack>

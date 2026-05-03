@@ -21,6 +21,14 @@
       "csp": null
     }
   },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:serwis-ai.db"]
+    },
+    "shell": {
+      "open": "^(https?://|mailto:|tel:|file://|/|[a-zA-Z]:[/\\\\]).*$"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

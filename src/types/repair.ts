@@ -20,6 +20,9 @@ export type RepairDocumentation = {
   boardviewStatus: RepairDocumentationStatus;
   schematicFileName?: string;
   boardviewFileName?: string;
+  /** Pełna ścieżka wybranego pliku (Tauri); bez kopiowania pliku do aplikacji. */
+  schematicPath?: string;
+  boardviewPath?: string;
 };
 
 export const DEFAULT_REPAIR_DOCUMENTATION: RepairDocumentation = {
@@ -49,6 +52,27 @@ export type RepairDiagnosisStepEntry = {
   answer: string;
 };
 
+/** Rola załącznika w tabeli `repair_files`. */
+export type RepairFileRole = "schematic" | "boardview" | "photo" | "bios" | "other";
+
+export const REPAIR_FILE_ROLE_LABELS: Record<RepairFileRole, string> = {
+  schematic: "Schemat",
+  boardview: "Boardview",
+  photo: "Zdjęcie",
+  bios: "BIOS",
+  other: "Inne",
+};
+
+export type RepairFile = {
+  id: string;
+  repairId: string;
+  fileName: string;
+  filePath: string;
+  fileType: string;
+  fileRole: RepairFileRole;
+  createdAt: string;
+};
+
 export type Repair = {
   id: string;
   customerName: string;
@@ -70,6 +94,8 @@ export type Repair = {
   diagnosticMode: DiagnosticMode;
   /** Historia mentora: pary (pytanie/wynik użytkownika → odpowiedź AI). */
   diagnosisSteps: RepairDiagnosisStepEntry[];
+  /** Załączniki z SQLite (łączone przy odczycie naprawy). */
+  attachedFiles: RepairFile[];
 };
 
 /** Szkic z formularza „nowa naprawa” — bez pól uzupełnianych przy zapisie w `App`. Zawiera m.in. `diagnosticMode`, `diagnosisSteps`. */

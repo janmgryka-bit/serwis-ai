@@ -16,6 +16,9 @@ export function buildSymptomString(
 ): string {
   const phrases = SYMPTOM_PRESET_OPTIONS.filter((o) => checked[o.id]).map((o) => o.phrase);
   const other = otherSymptom.trim();
+  if (phrases.length === 0 && other === "") {
+    return "";
+  }
   const parts: string[] = [];
   if (phrases.length > 0) {
     parts.push(phrases.join(", "));
